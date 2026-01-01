@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+bin/
+*.o
+*.a
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.env
+
+# Output files
+output/
+*.json
+!examples/*.json
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.log
+
+# Zip files (uploaded by mistake)
+*.zip

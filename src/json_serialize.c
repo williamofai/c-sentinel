@@ -1,11 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * json_serialize.c - Convert fingerprints to JSON for LLM analysis
- * 
- * This module serializes system fingerprints to JSON format that can
- * be sent to an LLM API for semantic analysis.
- * 
- * Note: Uses manual JSON construction to minimize dependencies.
- * In production, consider cJSON or similar for robustness.
  */
 
 #include <stdio.h>

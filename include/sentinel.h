@@ -1,13 +1,14 @@
 /*
- * C-Sentinel: Semantic Observability for UNIX Systems
- * 
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * A lightweight system prober that captures "system fingerprints"
  * for AI-assisted analysis of non-obvious risks.
- * 
- * Design Philosophy:
- * - Deterministic C foundation for non-deterministic AI reasoning
- * - Minimal dependencies, maximum portability
- * - Safe by default: read-only probing, validated outputs
  */
 
 #ifndef SENTINEL_H

@@ -1,14 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * policy.h - Deterministic Safety Gate for LLM Suggestions
- * 
- * This is the "Architect's Priority" - a C-based validation layer
- * that ensures AI suggestions are safe before presenting to users.
- * 
- * Design Philosophy:
- * - Deny by default, allow explicitly
- * - No regex, no parsing ambiguity - exact string matching
- * - Fast enough to validate in real-time
- * - Auditable - every decision is logged
  */
 
 #ifndef POLICY_H

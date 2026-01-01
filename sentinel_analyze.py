@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-C-Sentinel Python Wrapper
+C-Sentinel - Semantic Observability for UNIX Systems
+Copyright (c) 2025 William Murray
 
-This script orchestrates the C-based prober with LLM analysis.
-It demonstrates the "hybrid architecture" approach:
-- C handles the deterministic, performance-critical parts
-- Python handles API communication and orchestration
+Licensed under the MIT License.
+See LICENSE file for details.
 
+https://github.com/williamofai/c-sentinel
+
+Python wrapper for LLM-powered analysis.
 Supports both cloud (Anthropic) and local (Ollama) LLMs.
 
 Usage:

@@ -1,10 +1,13 @@
 /*
- * main.c - C-Sentinel CLI entry point
- * 
- * Usage: sentinel [config_file1] [config_file2] ...
- * 
- * Captures a system fingerprint and outputs JSON suitable for
- * LLM-based semantic analysis.
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
+ * main.c - CLI entry point
  */
 
 #include <stdio.h>

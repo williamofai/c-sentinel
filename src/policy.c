@@ -1,13 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * policy.c - Deterministic Safety Gate Implementation
- * 
- * This module implements the "trust but verify" layer between
- * LLM suggestions and user presentation.
- * 
- * Architecture Note:
- * This is intentionally simple and auditable. We use string
- * matching rather than regex to avoid ReDoS vulnerabilities
- * and to make the logic easy to verify by inspection.
  */
 
 #include <stdio.h>

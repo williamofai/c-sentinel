@@ -1,13 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * sanitize.c - Data Sanitization Implementation
- * 
- * This module ensures no sensitive data leaves the system boundary.
- * 
- * Implementation Notes:
- * - We use simple pattern matching, not regex (for security and speed)
- * - IPv4 detection uses digit counting heuristics
- * - The goal is "good enough" sanitization, not perfection
- * - False positives (over-redacting) are preferred to false negatives
  */
 
 #include <stdio.h>

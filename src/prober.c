@@ -1,10 +1,13 @@
 /*
- * prober.c - System state capture for C-Sentinel
- * 
- * This module gathers the "System Fingerprint" - a snapshot of
- * system state that can be analyzed for non-obvious risks.
- * 
- * Design decisions documented in DESIGN_DECISIONS.md
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
+ * prober.c - System state capture via /proc filesystem
  */
 
 #define _GNU_SOURCE

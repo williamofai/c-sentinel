@@ -1,19 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * sanitize.h - Data Sanitization Before External Transmission
- * 
- * Critical for Enterprise AI Architecture:
- * Before ANY data leaves the system boundary (to an LLM API or
- * anywhere else), it must be sanitized to remove:
- * - IP addresses
- * - Hostnames (optionally)
- * - Usernames
- * - Paths that reveal internal structure
- * - Potential secrets in environment variables
- * 
- * Design Philosophy:
- * - Fail closed: If in doubt, redact
- * - Preserve semantic meaning where possible
- * - Make redaction visible (not silent)
  */
 
 #ifndef SANITIZE_H

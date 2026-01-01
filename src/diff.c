@@ -1,13 +1,13 @@
 /*
+ * C-Sentinel - Semantic Observability for UNIX Systems
+ * Copyright (c) 2025 William Murray
+ *
+ * Licensed under the MIT License.
+ * See LICENSE file for details.
+ *
+ * https://github.com/williamofai/c-sentinel
+ *
  * diff.c - Fingerprint Drift Detection
- * 
- * Compare two system fingerprints and highlight differences.
- * 
- * Use case: "Node A is slow, Node B is fast. They look identical
- * in Datadog. Let's find what's actually different."
- * 
- * This is a standalone utility that reads two JSON fingerprint
- * files and outputs a diff report.
  */
 
 #include <stdio.h>

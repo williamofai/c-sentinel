@@ -327,7 +327,7 @@ c-sentinel/
 - [x] **Process attribution**
 
 ### Planned 📋
-- [ ] Dashboard audit tab (redacted view)
+- [x] **Dashboard Security tab**
 - [ ] Dashboard authentication
 - [ ] Email alerts
 - [ ] FreeBSD/macOS support

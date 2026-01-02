@@ -317,7 +317,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 **William Murray** - 30 years UNIX systems engineering
 
 - GitHub: [@williamofai](https://github.com/williamofai)
-- LinkedIn: [William Murray](https://www.linkedin.com/in/yourprofile)
+- LinkedIn: [William Murray](https://www.linkedin.com/in/william-murray-5180aa32b/)
 
 ---
 

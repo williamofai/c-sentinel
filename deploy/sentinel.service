@@ -11,6 +11,9 @@ ExecStart=/usr/local/bin/sentinel --watch --interval 300 --network
 Restart=on-failure
 RestartSec=30
 
+# Exit codes 0=OK, 1=WARNING, 2=CRITICAL are all valid results
+SuccessExitStatus=0 1 2
+
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict

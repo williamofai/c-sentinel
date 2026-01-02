@@ -161,7 +161,7 @@ static void parse_config_line(sentinel_config_t *cfg, const char *key, const cha
 /* Load configuration file */
 int config_load(void) {
     char path[512];
-    get_config_path(path, sizeof(path));
+    FILE *f = NULL;
     
     /* Start with defaults */
     memcpy(&g_config, &default_config, sizeof(g_config));
@@ -176,7 +176,15 @@ int config_load(void) {
         strncpy(g_config.openai_api_key, env_key, sizeof(g_config.openai_api_key) - 1);
     }
     
-    FILE *f = fopen(path, "r");
+    /* Try system config first (/etc/sentinel/config) */
+    f = fopen("/etc/sentinel/config", "r");
+    
+    /* Fall back to user config (~/.sentinel/config) */
+    if (!f) {
+        get_config_path(path, sizeof(path));
+        f = fopen(path, "r");
+    }
+    
     if (!f) {
         g_config_loaded = 1;
         return 0;  /* No config file is OK - use defaults + env */

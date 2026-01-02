@@ -1,0 +1,31 @@
+[Unit]
+Description=C-Sentinel - Semantic Observability for UNIX Systems
+Documentation=https://github.com/williamofai/c-sentinel
+After=network.target
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+ExecStart=/usr/local/bin/sentinel --watch --interval 300 --network
+Restart=on-failure
+RestartSec=30
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadOnlyPaths=/
+ReadWritePaths=/var/lib/sentinel
+
+# Allow reading /proc
+ProcSubset=all
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sentinel
+
+[Install]
+WantedBy=multi-user.target

@@ -30,6 +30,17 @@
 
 /* Get baseline directory path */
 static void get_baseline_dir(char *path, size_t path_size) {
+    struct stat st;
+    
+    /* If /var/lib/sentinel exists and is writable, use it (system service mode) */
+    if (stat("/var/lib/sentinel", &st) == 0 && S_ISDIR(st.st_mode)) {
+        if (access("/var/lib/sentinel", W_OK) == 0) {
+            snprintf(path, path_size, "/var/lib/sentinel");
+            return;
+        }
+    }
+    
+    /* Fall back to ~/.sentinel (user mode) */
     const char *home = getenv("HOME");
     if (!home) {
         struct passwd *pw = getpwuid(getuid());

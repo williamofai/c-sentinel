@@ -1,29 +1,32 @@
 [Unit]
-Description=C-Sentinel - Semantic Observability for UNIX Systems
+Description=C-Sentinel System Monitor with Audit Integration
 Documentation=https://github.com/williamofai/c-sentinel
-After=network.target
+After=network.target auditd.service
+Wants=auditd.service
 
 [Service]
-Type=simple
-User=sentinel
-Group=sentinel
-ExecStart=/usr/local/bin/sentinel --watch --interval 300 --network
-Restart=on-failure
-RestartSec=30
-
-# Exit codes 0=OK, 1=WARNING, 2=CRITICAL are all valid results
-SuccessExitStatus=0 1 2
+Type=oneshot
+ExecStart=/usr/local/bin/sentinel --json --network --audit
+User=root
+Group=root
 
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
 PrivateTmp=yes
-ReadOnlyPaths=/
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Allow reading audit logs
+ReadOnlyPaths=/var/log/audit
+
+# Allow writing baseline data
 ReadWritePaths=/var/lib/sentinel
 
-# Allow reading /proc
-ProcSubset=all
+# Exit codes 0, 1, 2 are all "success" (only 3 = error triggers restart)
+SuccessExitStatus=0 1 2
 
 # Logging
 StandardOutput=journal

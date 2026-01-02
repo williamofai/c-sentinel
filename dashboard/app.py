@@ -75,9 +75,34 @@ def init_db():
             load_1m FLOAT,
             listener_count INTEGER,
             unusual_port_count INTEGER,
-            uptime_days FLOAT
+            uptime_days FLOAT,
+            -- Audit fields (v0.4.0)
+            audit_enabled BOOLEAN DEFAULT FALSE,
+            audit_risk_score INTEGER,
+            audit_risk_level VARCHAR(16),
+            audit_auth_failures INTEGER,
+            audit_sudo_count INTEGER,
+            audit_brute_force BOOLEAN DEFAULT FALSE
         )
     ''')
+    
+    # Add audit columns if they don't exist (for upgrades)
+    audit_columns = [
+        ('audit_enabled', 'BOOLEAN DEFAULT FALSE'),
+        ('audit_risk_score', 'INTEGER'),
+        ('audit_risk_level', 'VARCHAR(16)'),
+        ('audit_auth_failures', 'INTEGER'),
+        ('audit_sudo_count', 'INTEGER'),
+        ('audit_brute_force', 'BOOLEAN DEFAULT FALSE'),
+    ]
+    
+    for col_name, col_type in audit_columns:
+        try:
+            cur.execute(f'''
+                ALTER TABLE fingerprints ADD COLUMN IF NOT EXISTS {col_name} {col_type}
+            ''')
+        except:
+            pass  # Column may already exist
     
     cur.execute('''
         CREATE INDEX IF NOT EXISTS idx_fingerprints_host_time 
@@ -142,13 +167,26 @@ def ingest_fingerprint():
         except:
             load_1m = 0
 
+        # Extract audit data (v0.4.0)
+        audit = data.get('audit_summary', {})
+        audit_enabled = audit.get('enabled', False)
+        audit_risk_score = audit.get('risk_score', None)
+        audit_risk_level = audit.get('risk_level', None)
+        audit_auth = audit.get('authentication', {})
+        audit_auth_failures = audit_auth.get('failures', 0)
+        audit_brute_force = audit_auth.get('brute_force_detected', False)
+        audit_priv = audit.get('privilege_escalation', {})
+        audit_sudo_count = audit_priv.get('sudo_count', 0)
+
         # Insert fingerprint
         cur.execute('''
             INSERT INTO fingerprints (
                 host_id, data, exit_code,
                 process_count, zombie_count, memory_percent,
-                load_1m, listener_count, unusual_port_count, uptime_days
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                load_1m, listener_count, unusual_port_count, uptime_days,
+                audit_enabled, audit_risk_score, audit_risk_level,
+                audit_auth_failures, audit_sudo_count, audit_brute_force
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (
             host_id,
@@ -160,7 +198,13 @@ def ingest_fingerprint():
             load_1m,
             network.get('total_listeners', 0),
             network.get('unusual_ports', 0),
-            uptime_days
+            uptime_days,
+            audit_enabled,
+            audit_risk_score,
+            audit_risk_level,
+            audit_auth_failures,
+            audit_sudo_count,
+            audit_brute_force
         ))
         
         fingerprint_id = cur.fetchone()['id']
@@ -188,7 +232,9 @@ def list_hosts():
         SELECT h.id, h.hostname, h.first_seen, h.last_seen,
                f.exit_code, f.process_count, f.zombie_count,
                f.memory_percent, f.load_1m, f.listener_count,
-               f.unusual_port_count, f.uptime_days
+               f.unusual_port_count, f.uptime_days,
+               f.audit_enabled, f.audit_risk_score, f.audit_risk_level,
+               f.audit_auth_failures, f.audit_brute_force
         FROM hosts h
         LEFT JOIN LATERAL (
             SELECT * FROM fingerprints 
@@ -247,7 +293,9 @@ def get_host(hostname):
     # Get recent fingerprints
     cur.execute('''
         SELECT id, captured_at, exit_code, process_count, zombie_count,
-               memory_percent, load_1m, listener_count, unusual_port_count, uptime_days
+               memory_percent, load_1m, listener_count, unusual_port_count, uptime_days,
+               audit_enabled, audit_risk_score, audit_risk_level,
+               audit_auth_failures, audit_sudo_count, audit_brute_force
         FROM fingerprints
         WHERE host_id = %s
         ORDER BY captured_at DESC
@@ -316,12 +364,12 @@ def get_stats():
     ''')
     active_hosts = cur.fetchone()['active']
     
-    # Critical hosts
+    # Critical hosts (includes high-risk audit)
     cur.execute('''
         SELECT COUNT(DISTINCT f.host_id) as critical
         FROM fingerprints f
         WHERE f.captured_at > NOW() - INTERVAL '10 minutes'
-        AND f.exit_code = 2
+        AND (f.exit_code = 2 OR f.audit_risk_level IN ('high', 'critical'))
     ''')
     critical_hosts = cur.fetchone()['critical']
     

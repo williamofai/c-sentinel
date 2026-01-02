@@ -13,6 +13,11 @@
         .status-critical { color: #ef4444; }
         .status-stale { color: #6b7280; }
         
+        .risk-low { color: #22c55e; background-color: rgba(34, 197, 94, 0.1); }
+        .risk-medium { color: #eab308; background-color: rgba(234, 179, 8, 0.1); }
+        .risk-high { color: #f97316; background-color: rgba(249, 115, 22, 0.1); }
+        .risk-critical { color: #ef4444; background-color: rgba(239, 68, 68, 0.1); }
+        
         pre { white-space: pre-wrap; word-wrap: break-word; }
         
         .chart-container {
@@ -39,6 +44,12 @@
                         <p id="host-status" class="text-xs text-gray-400">Loading...</p>
                     </div>
                 </div>
+                <!-- Risk Badge -->
+                <div id="risk-badge" class="hidden ml-auto">
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold">
+                        Risk: <span id="risk-level">-</span>
+                    </span>
+                </div>
             </div>
         </div>
     </header>
@@ -46,7 +57,7 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 py-8">
         <!-- Quick Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
             <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                 <div class="text-gray-400 text-xs mb-1">Memory</div>
                 <div id="stat-memory" class="text-2xl font-mono">-</div>
@@ -71,6 +82,10 @@
                 <div class="text-gray-400 text-xs mb-1">Uptime</div>
                 <div id="stat-uptime" class="text-2xl font-mono">-</div>
             </div>
+            <div id="stat-risk-card" class="bg-gray-800 rounded-lg p-4 border border-gray-700 hidden">
+                <div class="text-gray-400 text-xs mb-1">Risk Score</div>
+                <div id="stat-risk" class="text-2xl font-mono">-</div>
+            </div>
         </div>
 
         <!-- Charts -->
@@ -92,7 +107,10 @@
         <!-- Tabs -->
         <div class="mb-6">
             <div class="flex space-x-4 border-b border-gray-700">
-                <button onclick="showTab('network')" id="tab-network" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400">
+                <button onclick="showTab('security')" id="tab-security" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400">
+                    <i data-lucide="shield" class="w-4 h-4 inline mr-1"></i>Security
+                </button>
+                <button onclick="showTab('network')" id="tab-network" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-white">
                     Network
                 </button>
                 <button onclick="showTab('processes')" id="tab-processes" class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-white">
@@ -107,8 +125,88 @@
             </div>
         </div>
 
-        <!-- Tab Content -->
-        <div id="content-network" class="tab-content">
+        <!-- Tab Content: Security -->
+        <div id="content-security" class="tab-content">
+            <div id="security-disabled" class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center hidden">
+                <i data-lucide="shield-off" class="w-12 h-12 mx-auto mb-4 text-gray-600"></i>
+                <h3 class="text-lg font-semibold mb-2">Audit Not Enabled</h3>
+                <p class="text-gray-400 mb-4">Run sentinel with --audit flag to enable security monitoring.</p>
+                <code class="text-xs text-emerald-400 bg-gray-900 px-3 py-2 rounded">sudo sentinel --json --network --audit</code>
+            </div>
+            
+            <div id="security-content" class="space-y-6">
+                <!-- Risk Score Card -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Security Risk Assessment</h3>
+                        <div id="risk-score-badge" class="px-4 py-2 rounded-lg text-lg font-bold">
+                            Score: <span id="security-score">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <div class="text-gray-400 text-xs mb-1">Auth Failures</div>
+                            <div id="sec-auth-failures" class="text-2xl font-mono">-</div>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <div class="text-gray-400 text-xs mb-1">Sudo Commands</div>
+                            <div id="sec-sudo-count" class="text-2xl font-mono">-</div>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <div class="text-gray-400 text-xs mb-1">File Access</div>
+                            <div id="sec-file-access" class="text-2xl font-mono">-</div>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <div class="text-gray-400 text-xs mb-1">SELinux Denials</div>
+                            <div id="sec-selinux" class="text-2xl font-mono">-</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Brute Force Alert -->
+                    <div id="brute-force-alert" class="hidden mt-4 bg-red-900/30 border border-red-700 rounded-lg p-4 flex items-center">
+                        <i data-lucide="alert-octagon" class="w-6 h-6 text-red-400 mr-3"></i>
+                        <div>
+                            <div class="font-semibold text-red-400">Brute Force Detected</div>
+                            <div class="text-sm text-gray-400">Multiple authentication failures detected in short period</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sensitive File Access -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-900 border-b border-gray-700">
+                        <h3 class="font-semibold">Sensitive File Access</h3>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-900/50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-gray-400">File</th>
+                                <th class="px-4 py-2 text-left text-gray-400">Process</th>
+                                <th class="px-4 py-2 text-left text-gray-400">Count</th>
+                                <th class="px-4 py-2 text-left text-gray-400">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-access-table">
+                            <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No file access events</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Anomalies -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-900 border-b border-gray-700">
+                        <h3 class="font-semibold">Anomalies Detected</h3>
+                    </div>
+                    <div id="anomalies-list" class="p-4">
+                        <p class="text-gray-500 text-center py-4">No anomalies detected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Network -->
+        <div id="content-network" class="tab-content hidden">
             <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
                 <table class="w-full text-sm">
                     <thead class="bg-gray-900">
@@ -173,6 +271,14 @@
         </div>
     </main>
 
+    <!-- Footer -->
+    <footer class="bg-gray-800 border-t border-gray-700 py-3 px-4 mt-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-500">
+            <span>C-Sentinel v0.4.0</span>
+            <span id="last-update">Last updated: -</span>
+        </div>
+    </footer>
+
     <script>
         const hostname = '{{ hostname }}';
         let memoryChart, loadChart;
@@ -199,6 +305,17 @@
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
             if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
             return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        }
+        
+        // Get risk class
+        function getRiskClass(level) {
+            const classes = {
+                'low': 'risk-low',
+                'medium': 'risk-medium',
+                'high': 'risk-high',
+                'critical': 'risk-critical'
+            };
+            return classes[level] || 'risk-low';
         }
 
         // Initialize charts
@@ -305,6 +422,20 @@
                         latest.listener_count || '-';
                     document.getElementById('stat-uptime').textContent = 
                         latest.uptime_days ? latest.uptime_days.toFixed(1) + 'd' : '-';
+                    
+                    // Audit stats
+                    if (latest.audit_enabled) {
+                        document.getElementById('stat-risk-card').classList.remove('hidden');
+                        const riskEl = document.getElementById('stat-risk');
+                        riskEl.textContent = latest.audit_risk_score || '0';
+                        riskEl.className = `text-2xl font-mono ${getRiskClass(latest.audit_risk_level)}`;
+                        
+                        // Show risk badge in header
+                        const badge = document.getElementById('risk-badge');
+                        badge.classList.remove('hidden');
+                        badge.querySelector('span').className = `px-3 py-1 rounded-full text-sm font-semibold ${getRiskClass(latest.audit_risk_level)}`;
+                        document.getElementById('risk-level').textContent = (latest.audit_risk_level || 'unknown').toUpperCase();
+                    }
                 }
 
             } catch (error) {
@@ -321,6 +452,76 @@
                 if (result.error) return;
                 
                 const data = result.data;
+                
+                // Security tab
+                const audit = data.audit_summary;
+                if (audit && audit.enabled) {
+                    document.getElementById('security-disabled').classList.add('hidden');
+                    document.getElementById('security-content').classList.remove('hidden');
+                    
+                    // Risk score
+                    const scoreEl = document.getElementById('security-score');
+                    scoreEl.textContent = audit.risk_score || 0;
+                    const scoreBadge = document.getElementById('risk-score-badge');
+                    scoreBadge.className = `px-4 py-2 rounded-lg text-lg font-bold ${getRiskClass(audit.risk_level)}`;
+                    
+                    // Stats
+                    document.getElementById('sec-auth-failures').textContent = 
+                        audit.authentication?.failures || 0;
+                    document.getElementById('sec-sudo-count').textContent = 
+                        audit.privilege_escalation?.sudo_count || 0;
+                    document.getElementById('sec-file-access').textContent = 
+                        audit.file_integrity?.sensitive_file_access?.length || 0;
+                    document.getElementById('sec-selinux').textContent = 
+                        audit.security_framework?.selinux_avc_denials || 0;
+                    
+                    // Brute force alert
+                    if (audit.authentication?.brute_force_detected) {
+                        document.getElementById('brute-force-alert').classList.remove('hidden');
+                    } else {
+                        document.getElementById('brute-force-alert').classList.add('hidden');
+                    }
+                    
+                    // File access table
+                    const files = audit.file_integrity?.sensitive_file_access || [];
+                    document.getElementById('file-access-table').innerHTML = files.length ?
+                        files.map(f => `
+                            <tr class="border-t border-gray-700">
+                                <td class="px-4 py-2 font-mono text-xs">${f.path}</td>
+                                <td class="px-4 py-2">${f.process || '-'}</td>
+                                <td class="px-4 py-2 font-mono">${f.count}</td>
+                                <td class="px-4 py-2">
+                                    ${f.suspicious ? 
+                                        '<span class="text-red-400 flex items-center"><i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>suspicious</span>' : 
+                                        '<span class="text-gray-500">normal</span>'}
+                                </td>
+                            </tr>
+                        `).join('') :
+                        '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No file access events</td></tr>';
+                    
+                    // Anomalies
+                    const anomalies = audit.anomalies || [];
+                    document.getElementById('anomalies-list').innerHTML = anomalies.length ?
+                        anomalies.map(a => `
+                            <div class="flex items-start p-3 bg-gray-900 rounded-lg mb-2">
+                                <i data-lucide="alert-circle" class="w-5 h-5 mr-3 mt-0.5 ${
+                                    a.severity === 'CRITICAL' ? 'text-red-400' :
+                                    a.severity === 'HIGH' ? 'text-orange-400' :
+                                    'text-yellow-400'
+                                }"></i>
+                                <div>
+                                    <div class="font-semibold">${a.type}</div>
+                                    <div class="text-sm text-gray-400">${a.description}</div>
+                                </div>
+                            </div>
+                        `).join('') :
+                        '<p class="text-gray-500 text-center py-4">No anomalies detected</p>';
+                    
+                    lucide.createIcons();
+                } else {
+                    document.getElementById('security-disabled').classList.remove('hidden');
+                    document.getElementById('security-content').classList.add('hidden');
+                }
 
                 // Network table
                 const listeners = data.network?.listeners || [];
@@ -373,6 +574,10 @@
 
                 // Raw JSON
                 document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+                
+                // Update timestamp
+                document.getElementById('last-update').textContent = 
+                    'Last updated: ' + new Date().toLocaleTimeString();
 
             } catch (error) {
                 console.error('Failed to load fingerprint:', error);

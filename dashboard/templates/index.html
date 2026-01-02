@@ -18,6 +18,16 @@
         .bg-status-critical { background-color: #ef4444; }
         .bg-status-stale { background-color: #6b7280; }
         
+        .risk-low { color: #22c55e; }
+        .risk-medium { color: #eab308; }
+        .risk-high { color: #f97316; }
+        .risk-critical { color: #ef4444; }
+        
+        .bg-risk-low { background-color: rgba(34, 197, 94, 0.2); }
+        .bg-risk-medium { background-color: rgba(234, 179, 8, 0.2); }
+        .bg-risk-high { background-color: rgba(249, 115, 22, 0.2); }
+        .bg-risk-critical { background-color: rgba(239, 68, 68, 0.2); }
+        
         .card-hover:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
@@ -79,7 +89,7 @@
             <div class="bg-gray-800 rounded-lg p-4 max-w-xl mx-auto text-left">
                 <p class="text-sm text-gray-400 mb-2">Add to your sentinel cron or systemd:</p>
                 <code class="text-xs text-emerald-400 block bg-gray-900 p-3 rounded">
-                    ./sentinel --json --network | curl -X POST \<br>
+                    sudo ./sentinel --json --network --audit | curl -X POST \<br>
                     &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
                     &nbsp;&nbsp;-H "X-API-Key: YOUR_KEY" \<br>
                     &nbsp;&nbsp;-d @- https://sentinel.speytech.com/api/ingest
@@ -91,7 +101,7 @@
     <!-- Footer -->
     <footer class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 py-2 px-4">
         <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-500">
-            <span>C-Sentinel v0.3.0</span>
+            <span>C-Sentinel v0.4.0</span>
             <span id="last-update">Last updated: -</span>
             <a href="https://github.com/williamofai/c-sentinel" class="hover:text-gray-300">
                 <i data-lucide="github" class="w-4 h-4 inline"></i> GitHub
@@ -129,11 +139,47 @@
             };
             return icons[status] || 'help-circle';
         }
+        
+        // Get risk class
+        function getRiskClass(level) {
+            return level ? `risk-${level}` : 'risk-low';
+        }
+        
+        function getBgRiskClass(level) {
+            return level ? `bg-risk-${level}` : '';
+        }
 
         // Create host card HTML
         function createHostCard(host) {
             const statusClass = `status-${host.status}`;
             const bgStatusClass = `bg-status-${host.status}`;
+            
+            // Risk badge HTML (only if audit is enabled)
+            let riskBadge = '';
+            if (host.audit_enabled && host.audit_risk_level) {
+                const riskClass = getRiskClass(host.audit_risk_level);
+                const bgRiskClass = getBgRiskClass(host.audit_risk_level);
+                riskBadge = `
+                    <div class="mt-2 flex items-center justify-between ${bgRiskClass} rounded px-2 py-1">
+                        <span class="text-xs flex items-center ${riskClass}">
+                            <i data-lucide="shield" class="w-3 h-3 mr-1"></i>
+                            Risk: ${host.audit_risk_level.toUpperCase()}
+                        </span>
+                        <span class="text-xs font-mono ${riskClass}">${host.audit_risk_score || 0}</span>
+                    </div>
+                `;
+            }
+            
+            // Brute force warning
+            let bruteForceAlert = '';
+            if (host.audit_brute_force) {
+                bruteForceAlert = `
+                    <div class="mt-1 text-xs text-red-400 flex items-center">
+                        <i data-lucide="alert-octagon" class="w-3 h-3 mr-1"></i>
+                        Brute force detected
+                    </div>
+                `;
+            }
             
             return `
                 <a href="/host/${host.hostname}" 
@@ -165,6 +211,8 @@
                         </div>
                     </div>
                     
+                    ${riskBadge}
+                    
                     ${host.zombie_count > 0 ? `
                         <div class="mt-2 text-xs text-red-400 flex items-center">
                             <i data-lucide="skull" class="w-3 h-3 mr-1"></i>
@@ -178,6 +226,8 @@
                             ${host.unusual_port_count} unusual port${host.unusual_port_count > 1 ? 's' : ''}
                         </div>
                     ` : ''}
+                    
+                    ${bruteForceAlert}
                     
                     <div class="mt-3 text-xs text-gray-500 flex items-center justify-between">
                         <span>Uptime: ${host.uptime_days ? host.uptime_days.toFixed(1) + 'd' : '-'}</span>
@@ -242,3 +292,4 @@
     </script>
 </body>
 </html>
+

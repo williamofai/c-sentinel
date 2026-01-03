@@ -1,350 +1,231 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C-Sentinel Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        .status-ok { color: #22c55e; }
-        .status-warning { color: #eab308; }
-        .status-critical { color: #ef4444; }
-        .status-stale { color: #6b7280; }
-        .status-unknown { color: #6b7280; }
-        
-        .bg-status-ok { background-color: #22c55e; }
-        .bg-status-warning { background-color: #eab308; }
-        .bg-status-critical { background-color: #ef4444; }
-        .bg-status-stale { background-color: #6b7280; }
-        
-        .risk-low { color: #22c55e; }
-        .risk-medium { color: #eab308; }
-        .risk-high { color: #f97316; }
-        .risk-critical { color: #ef4444; }
-        
-        .bg-risk-low { background-color: rgba(34, 197, 94, 0.2); }
-        .bg-risk-medium { background-color: rgba(234, 179, 8, 0.2); }
-        .bg-risk-high { background-color: rgba(249, 115, 22, 0.2); }
-        .bg-risk-critical { background-color: rgba(239, 68, 68, 0.2); }
-        
-        .card-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .pulse-dot { animation: pulse-dot 2s infinite; }
-    </style>
-</head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
-                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+{% extends "base.html" %}
+
+{% block title %}C-Sentinel Dashboard{% endblock %}
+
+{% block header %}
+<header class="bg-gray-800 border-b border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold">C-Sentinel</h1>
+                <p class="text-xs text-gray-400">Semantic Observability</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div id="stats" class="flex items-center space-x-6 text-sm">
+                <div class="text-center">
+                    <div id="stat-total" class="text-2xl font-bold">-</div>
+                    <div class="text-gray-400">Hosts</div>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold">C-Sentinel</h1>
-                    <p class="text-xs text-gray-400">Semantic Observability</p>
+                <div class="text-center">
+                    <div id="stat-active" class="text-2xl font-bold text-emerald-400">-</div>
+                    <div class="text-gray-400">Active</div>
+                </div>
+                <div class="text-center">
+                    <div id="stat-critical" class="text-2xl font-bold text-red-400">-</div>
+                    <div class="text-gray-400">Critical</div>
                 </div>
             </div>
-            <div class="flex items-center space-x-6">
-                <div id="stats" class="flex items-center space-x-6 text-sm">
-                    <div class="text-center">
-                        <div id="stat-total" class="text-2xl font-bold">-</div>
-                        <div class="text-gray-400">Hosts</div>
-                    </div>
-                    <div class="text-center">
-                        <div id="stat-active" class="text-2xl font-bold text-emerald-400">-</div>
-                        <div class="text-gray-400">Active</div>
-                    </div>
-                    <div class="text-center">
-                        <div id="stat-critical" class="text-2xl font-bold text-red-400">-</div>
-                        <div class="text-gray-400">Critical</div>
-                    </div>
-                </div>
+            <div class="flex items-center space-x-4">
+                {% if session.role == 'admin' %}
+                <a href="/admin/users" class="text-gray-400 hover:text-white flex items-center text-sm">
+                    <i data-lucide="users" class="w-4 h-4 mr-1"></i>
+                    Users
+                </a>
+                {% endif %}
+                <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                    <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                    {{ session.username }}
+                </a>
                 <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
                     <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
                     Logout
                 </a>
             </div>
         </div>
-    </header>
+    </div>
+</header>
+{% endblock %}
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Host Grid -->
-        <div id="hosts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <!-- Host cards will be inserted here -->
-            <div class="col-span-full text-center py-12 text-gray-500">
-                <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
-                <p>Loading hosts...</p>
-            </div>
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Host Cards Container -->
+    <div id="hosts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Loading state -->
+        <div class="col-span-full text-center py-12 text-gray-500">
+            <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
+            <p>Loading hosts...</p>
         </div>
-        
-        <!-- Empty State -->
-        <div id="empty-state" class="hidden text-center py-16">
-            <i data-lucide="server-off" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
-            <h2 class="text-xl font-semibold mb-2">No Hosts Reporting</h2>
-            <p class="text-gray-400 mb-6">Configure your sentinel agents to report to this dashboard.</p>
-            <div class="bg-gray-800 rounded-lg p-4 max-w-xl mx-auto text-left">
-                <p class="text-sm text-gray-400 mb-2">Add to your sentinel cron or systemd:</p>
-                <code class="text-xs text-emerald-400 block bg-gray-900 p-3 rounded">
-                    sudo ./sentinel --json --network --audit | curl -X POST \<br>
-                    &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
-                    &nbsp;&nbsp;-H "X-API-Key: YOUR_KEY" \<br>
-                    &nbsp;&nbsp;-d @- https://sentinel.speytech.com/api/ingest
-                </code>
-            </div>
-        </div>
-    </main>
+    </div>
+</div>
+{% endblock %}
 
-    <!-- Footer -->
-    <footer class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 py-2 px-4">
-        <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-500">
-            <span>C-Sentinel v0.5.0</span>
-            <span id="last-update">Last updated: -</span>
-            <a href="https://github.com/williamofai/c-sentinel" class="hover:text-gray-300">
-                <i data-lucide="github" class="w-4 h-4 inline"></i> GitHub
-            </a>
-        </div>
-    </footer>
+{% block scripts %}
+<script>
+    const REFRESH_INTERVAL = 30000;
 
-    <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-
-        // Refresh interval (30 seconds)
-        const REFRESH_INTERVAL = 30000;
-
-        // Format relative time
-        function timeAgo(dateStr) {
-            const date = new Date(dateStr);
-            const now = new Date();
-            const seconds = Math.floor((now - date) / 1000);
+    // Load hosts
+    async function loadHosts() {
+        try {
+            const response = await fetch('/api/hosts');
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            const hosts = await response.json();
             
-            if (seconds < 60) return 'just now';
-            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-            return Math.floor(seconds / 86400) + 'd ago';
-        }
-
-        // Get status icon
-        function statusIcon(status) {
-            const icons = {
-                'ok': 'check-circle',
-                'warning': 'alert-triangle',
-                'critical': 'alert-octagon',
-                'stale': 'clock',
-                'unknown': 'help-circle'
-            };
-            return icons[status] || 'help-circle';
-        }
-        
-        // Get risk class
-        function getRiskClass(level) {
-            return level ? `risk-${level}` : 'risk-low';
-        }
-        
-        function getBgRiskClass(level) {
-            return level ? `bg-risk-${level}` : '';
-        }
-
-        // Create host card HTML
-        function createHostCard(host) {
-            const statusClass = `status-${host.status}`;
-            const bgStatusClass = `bg-status-${host.status}`;
+            const container = document.getElementById('hosts-container');
             
-            // Risk badge HTML (only if audit is enabled)
-            let riskBadge = '';
-            if (host.audit_enabled && host.audit_risk_level) {
-                const riskClass = getRiskClass(host.audit_risk_level);
-                const bgRiskClass = getBgRiskClass(host.audit_risk_level);
-                riskBadge = `
-                    <div class="mt-2 flex items-center justify-between ${bgRiskClass} rounded px-2 py-1">
-                        <span class="text-xs flex items-center ${riskClass}">
-                            <i data-lucide="shield" class="w-3 h-3 mr-1"></i>
-                            Risk: ${host.audit_risk_level.toUpperCase()}
-                        </span>
-                        <span class="text-xs font-mono ${riskClass}">${host.audit_risk_score || 0}</span>
+            if (hosts.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i data-lucide="server-off" class="w-12 h-12 mx-auto mb-4 text-gray-600"></i>
+                        <h3 class="text-lg font-semibold text-gray-400">No hosts yet</h3>
+                        <p class="text-gray-500">Configure a sentinel agent to start monitoring</p>
                     </div>
                 `;
+                lucide.createIcons();
+                return;
             }
             
-            // Cumulative audit totals (v0.4.1)
-            let auditTotals = '';
-            const hasAuditTotals = host.audit_enabled && (
-                (host.audit_auth_failures_total || 0) > 0 ||
-                (host.audit_sudo_count_total || 0) > 0 ||
-                (host.audit_sensitive_access_total || 0) > 0
-            );
-            
-            if (hasAuditTotals) {
-                const authTotal = host.audit_auth_failures_total || 0;
-                const sudoTotal = host.audit_sudo_count_total || 0;
-                const fileTotal = host.audit_sensitive_access_total || 0;
+            container.innerHTML = hosts.map(host => {
+                const statusClass = `status-${host.status}`;
+                const statusDot = host.status === 'ok' ? 'bg-emerald-400 pulse-dot' :
+                                  host.status === 'warning' ? 'bg-yellow-400' :
+                                  host.status === 'critical' ? 'bg-red-400' :
+                                  'bg-gray-400';
                 
-                // Determine color based on totals
-                let authClass = 'text-gray-400';
-                if (authTotal > 20) authClass = 'text-red-400';
-                else if (authTotal > 5) authClass = 'text-yellow-400';
-                
-                auditTotals = `
-                    <div class="mt-2 bg-gray-900 rounded p-2">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs text-gray-500">Security totals</span>
-                            <span class="text-xs text-gray-600">${host.audit_totals_since ? 'since ' + timeAgo(host.audit_totals_since) : ''}</span>
+                // Risk badge
+                let riskBadge = '';
+                if (host.audit_enabled && host.audit_risk_score !== null) {
+                    const riskClass = `risk-${host.audit_risk_level || 'low'}`;
+                    riskBadge = `
+                        <div class="flex items-center justify-between p-2 rounded-lg ${riskClass}">
+                            <span class="flex items-center text-sm">
+                                <i data-lucide="shield" class="w-4 h-4 mr-1"></i>
+                                Risk: ${(host.audit_risk_level || 'LOW').toUpperCase()}
+                            </span>
+                            <span class="font-bold">${host.audit_risk_score}</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-1 text-xs">
-                            <div class="text-center">
-                                <div class="font-mono ${authClass}">${authTotal}</div>
-                                <div class="text-gray-500">auth fail</div>
-                            </div>
-                            <div class="text-center">
-                                <div class="font-mono text-gray-400">${sudoTotal}</div>
-                                <div class="text-gray-500">sudo</div>
-                            </div>
-                            <div class="text-center">
-                                <div class="font-mono ${fileTotal > 0 ? 'text-yellow-400' : 'text-gray-400'}">${fileTotal}</div>
-                                <div class="text-gray-500">file access</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Brute force warning - only show if count > 0 (colour fix)
-            let bruteForceAlert = '';
-            const bruteCount = host.audit_brute_force_count || 0;
-            if (bruteCount > 0) {
-                bruteForceAlert = `
-                    <div class="mt-1 text-xs text-red-400 flex items-center">
-                        <i data-lucide="alert-octagon" class="w-3 h-3 mr-1"></i>
-                        Brute force detected (${bruteCount}x)
-                    </div>
-                `;
-            }
-            
-            return `
-                <a href="/host/${host.hostname}" 
-                   class="bg-gray-800 rounded-lg p-4 border border-gray-700 card-hover transition-all duration-200 block">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-2 h-2 rounded-full ${bgStatusClass} ${host.status === 'ok' ? 'pulse-dot' : ''}"></div>
-                            <h3 class="font-semibold truncate">${host.hostname}</h3>
-                        </div>
-                        <i data-lucide="${statusIcon(host.status)}" class="w-5 h-5 ${statusClass}"></i>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                        <div class="bg-gray-900 rounded p-2">
-                            <div class="text-gray-400 text-xs">Memory</div>
-                            <div class="font-mono">${host.memory_percent ? host.memory_percent.toFixed(1) + '%' : '-'}</div>
-                        </div>
-                        <div class="bg-gray-900 rounded p-2">
-                            <div class="text-gray-400 text-xs">Load</div>
-                            <div class="font-mono">${host.load_1m ? host.load_1m.toFixed(2) : '-'}</div>
-                        </div>
-                        <div class="bg-gray-900 rounded p-2">
-                            <div class="text-gray-400 text-xs">Processes</div>
-                            <div class="font-mono">${host.process_count || '-'}</div>
-                        </div>
-                        <div class="bg-gray-900 rounded p-2">
-                            <div class="text-gray-400 text-xs">Listeners</div>
-                            <div class="font-mono">${host.listener_count || '-'}</div>
-                        </div>
-                    </div>
-                    
-                    ${riskBadge}
-                    ${auditTotals}
-                    
-                    ${host.zombie_count > 0 ? `
-                        <div class="mt-2 text-xs text-red-400 flex items-center">
-                            <i data-lucide="skull" class="w-3 h-3 mr-1"></i>
-                            ${host.zombie_count} zombie${host.zombie_count > 1 ? 's' : ''}
-                        </div>
-                    ` : ''}
-                    
-                    ${host.unusual_port_count > 0 ? `
-                        <div class="mt-1 text-xs text-yellow-400 flex items-center">
-                            <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>
-                            ${host.unusual_port_count} unusual port${host.unusual_port_count > 1 ? 's' : ''}
-                        </div>
-                    ` : ''}
-                    
-                    ${bruteForceAlert}
-                    
-                    <div class="mt-3 text-xs text-gray-500 flex items-center justify-between">
-                        <span>Uptime: ${host.uptime_days ? host.uptime_days.toFixed(1) + 'd' : '-'}</span>
-                        <span>${host.last_seen ? timeAgo(host.last_seen) : 'never'}</span>
-                    </div>
-                </a>
-            `;
-        }
-
-        // Load hosts
-        async function loadHosts() {
-            try {
-                const response = await fetch('/api/hosts');
-                if (response.status === 401) {
-                    window.location.href = '/login';
-                    return;
+                    `;
                 }
-                const hosts = await response.json();
                 
-                const grid = document.getElementById('hosts-grid');
-                const emptyState = document.getElementById('empty-state');
-                
-                if (hosts.length === 0) {
-                    grid.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
+                // Status icon
+                let statusIcon = '';
+                if (host.status === 'ok') {
+                    statusIcon = '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>';
+                } else if (host.status === 'warning') {
+                    statusIcon = '<i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-400"></i>';
+                } else if (host.status === 'critical') {
+                    statusIcon = '<i data-lucide="alert-octagon" class="w-5 h-5 text-red-400"></i>';
                 } else {
-                    grid.classList.remove('hidden');
-                    emptyState.classList.add('hidden');
-                    grid.innerHTML = hosts.map(createHostCard).join('');
-                    lucide.createIcons();
+                    statusIcon = '<i data-lucide="clock" class="w-5 h-5 text-gray-400"></i>';
                 }
                 
-                // Update last refresh time
-                document.getElementById('last-update').textContent = 
-                    'Last updated: ' + new Date().toLocaleTimeString();
-                    
-            } catch (error) {
-                console.error('Failed to load hosts:', error);
-            }
-        }
-
-        // Load stats
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                if (response.status === 401) return;
-                const stats = await response.json();
+                // Time ago
+                const lastSeen = host.last_seen ? timeAgo(host.last_seen) : 'never';
                 
-                document.getElementById('stat-total').textContent = stats.total_hosts;
-                document.getElementById('stat-active').textContent = stats.active_hosts;
-                document.getElementById('stat-critical').textContent = stats.critical_hosts;
+                // Warnings
+                let warnings = [];
+                if (host.unusual_port_count > 0) {
+                    warnings.push(`<span class="text-yellow-400"><i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> ${host.unusual_port_count} unusual ports</span>`);
+                }
+                if (host.audit_brute_force) {
+                    warnings.push(`<span class="text-red-400"><i data-lucide="alert-octagon" class="w-3 h-3 inline"></i> Brute force detected</span>`);
+                }
                 
-            } catch (error) {
-                console.error('Failed to load stats:', error);
-            }
+                return `
+                    <a href="/host/${host.hostname}" class="block bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-gray-600 transition-all card-hover">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 rounded-full ${statusDot} mr-3"></span>
+                                <h3 class="font-semibold text-lg">${host.hostname}</h3>
+                            </div>
+                            ${statusIcon}
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="bg-gray-900 rounded p-2">
+                                <div class="text-gray-400 text-xs">Memory</div>
+                                <div class="font-mono">${host.memory_percent ? host.memory_percent.toFixed(1) + '%' : '-'}</div>
+                            </div>
+                            <div class="bg-gray-900 rounded p-2">
+                                <div class="text-gray-400 text-xs">Load</div>
+                                <div class="font-mono">${host.load_1m ? host.load_1m.toFixed(2) : '-'}</div>
+                            </div>
+                            <div class="bg-gray-900 rounded p-2">
+                                <div class="text-gray-400 text-xs">Processes</div>
+                                <div class="font-mono">${host.process_count || '-'}</div>
+                            </div>
+                            <div class="bg-gray-900 rounded p-2">
+                                <div class="text-gray-400 text-xs">Listeners</div>
+                                <div class="font-mono">${host.listener_count || '-'}</div>
+                            </div>
+                        </div>
+                        
+                        ${riskBadge}
+                        
+                        ${warnings.length > 0 ? `
+                            <div class="mt-3 text-xs space-y-1">
+                                ${warnings.join('<br>')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mt-4 flex justify-between text-xs text-gray-500">
+                            <span>Uptime: ${host.uptime_days ? host.uptime_days.toFixed(1) + 'd' : '-'}</span>
+                            <span>${lastSeen}</span>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+            
+            lucide.createIcons();
+            updateLastUpdated();
+            
+        } catch (error) {
+            console.error('Failed to load hosts:', error);
         }
+    }
 
-        // Initial load
+    // Time ago helper
+    function timeAgo(dateStr) {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return 'just now';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+        return Math.floor(seconds / 86400) + 'd ago';
+    }
+
+    // Load stats
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            if (response.status === 401) return;
+            const stats = await response.json();
+            
+            document.getElementById('stat-total').textContent = stats.total_hosts;
+            document.getElementById('stat-active').textContent = stats.active_hosts;
+            document.getElementById('stat-critical').textContent = stats.critical_hosts;
+            
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+
+    // Initial load
+    loadHosts();
+    loadStats();
+
+    // Auto-refresh
+    setInterval(() => {
         loadHosts();
         loadStats();
-
-        // Auto-refresh
-        setInterval(() => {
-            loadHosts();
-            loadStats();
-        }, REFRESH_INTERVAL);
-    </script>
-</body>
-</html>
-
+    }, REFRESH_INTERVAL);
+</script>
+{% endblock %}

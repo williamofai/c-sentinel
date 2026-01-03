@@ -2,10 +2,10 @@
 
 **Semantic Observability for UNIX Systems**
 
-A lightweight, portable system prober written in C that captures "system fingerprints" for AI-assisted analysis of non-obvious risks. Features auditd integration, explainable risk scoring, and a live web dashboard with email alerts.
+A lightweight, portable system prober written in C that captures "system fingerprints" for AI-assisted analysis of non-obvious risks. Features auditd integration, explainable risk scoring, and a live web dashboard with enterprise-grade multi-user authentication.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.0-blue)
+![Version](https://img.shields.io/badge/version-0.6.0-blue)
 
 **Live Demo**: [sentinel.speytech.com](https://sentinel.speytech.com)
 
@@ -18,18 +18,20 @@ A lightweight, portable system prober written in C that captures "system fingerp
 ### Secure Login
 ![Login Page](docs/login-page.png)
 
-## What's New in v0.5.x
+## What's New in v0.6.0
 
-- 🛡️ **Security Posture Summary** - Plain English explanation of system security status
-- 📈 **Risk Trend Sparkline** - 24-hour risk score history at a glance
-- 🧠 **Learning Indicator** - Shows baseline calibration progress (Learning → Calibrating → Ready)
-- ❓ **"Why This Score?"** - Explainable risk factors with weighted contributions
-- 📧 **Email Alerts** - Automatic notifications for high-risk events
-- 🔐 **Dashboard Authentication** - Password-protected access
-- 📜 **Event History** - Timeline of security events with acknowledgement
-- ⏱️ **Locale-Aware Time Windows** - Proper incremental event tracking
+- 👥 **Multi-User Authentication** - Role-based access control (Admin/Operator/Viewer)
+- 🔐 **Two-Factor Authentication** - TOTP support with Google Authenticator, Authy, etc.
+- 🔑 **Personal API Keys** - Per-user API keys for automation and CI/CD
+- 📋 **Admin Audit Log** - Track all user actions with filtering
+- 💻 **Session Management** - View active sessions, revoke access, force logout
+- 📧 **User Email Notifications** - Login alerts, password changes, account events
+- 🎨 **Modern Toast Notifications** - No more 1990s JavaScript alerts!
+- 🌐 **Real Client IP Detection** - Proper X-Forwarded-For handling behind proxies
 
 ### Previous Releases
+
+**v0.5.x**: Security posture summary, risk trend sparkline, learning indicator, explainable risk factors, email alerts, event history
 
 **v0.4.0**: Auditd integration, brute force detection, privacy-preserving username hashing, process attribution, risk scoring
 
@@ -72,6 +74,59 @@ sudo ./bin/sentinel --watch --interval 300 --network --audit
 
 The web dashboard provides real-time security monitoring across your infrastructure.
 
+### Multi-User Authentication
+
+Enterprise-grade access control with three roles:
+
+| Role | Permissions |
+|------|-------------|
+| **Admin** | Full access: manage users, view audit logs, all operations |
+| **Operator** | Acknowledge events, reset counters, view all data |
+| **Viewer** | Read-only access to dashboards and data |
+
+### Two-Factor Authentication (TOTP)
+
+Secure your account with industry-standard TOTP:
+- Works with Google Authenticator, Authy, Microsoft Authenticator
+- QR code setup for easy configuration
+- Required on every login when enabled
+- Email notifications on enable/disable
+
+### Personal API Keys
+
+Each user can create their own API keys for automation:
+- Named keys (e.g., "CI/CD Pipeline", "Monitoring Script")
+- Optional expiration dates
+- Enable/disable without deleting
+- Last-used tracking
+- Keys inherit user's role permissions
+
+```bash
+# Use your personal API key
+curl -X POST https://sentinel.example.com/api/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_your_personal_key" \
+  -d @fingerprint.json
+```
+
+### Admin Audit Log
+
+Track all user actions for compliance and security:
+- Login/logout events with IP addresses
+- User management actions (create, update, delete)
+- Password changes
+- Session revocations
+- Filterable by user, action type, and time range
+
+### Session Management
+
+Full visibility into active sessions:
+- See who's logged in and from where
+- Device and browser detection
+- Revoke individual sessions
+- "Logout all others" for security incidents
+- Automatic cleanup of expired sessions
+
 ### Security Posture Summary
 
 Plain English explanation of your system's security status:
@@ -109,6 +164,8 @@ Automatic notifications when:
 - Risk score ≥ 16 (high/critical)
 - Brute force attack detected
 - Executions from /tmp or /dev/shm
+- User login from new IP
+- Password or 2FA changes
 
 ## Auditd Integration
 
@@ -217,6 +274,11 @@ C-Sentinel includes a web dashboard for monitoring multiple hosts in real-time.
 
 ### Features
 
+- **Multi-User Authentication** - Role-based access control
+- **Two-Factor Authentication** - TOTP with QR code setup
+- **Personal API Keys** - Per-user automation keys
+- **Admin Audit Log** - Complete action history
+- **Session Management** - Active session control
 - **Security Posture Summary** - Plain English system status
 - **Risk Trend Sparkline** - 24-hour visual history
 - **Explainable Risk Factors** - Know *why* the score is what it is
@@ -227,7 +289,6 @@ C-Sentinel includes a web dashboard for monitoring multiple hosts in real-time.
 - **Historical Charts** - Memory and load over 24 hours
 - **Network View** - All listening ports and connections
 - **Config Tracking** - SHA256 checksums of monitored files
-- **Authentication** - Password-protected access
 
 ### Quick Setup
 
@@ -235,6 +296,12 @@ C-Sentinel includes a web dashboard for monitoring multiple hosts in real-time.
 # Install dashboard
 cd dashboard
 sudo ./install-dashboard.sh
+
+# Run database migration (for multi-user features)
+sudo -u postgres psql -d sentinel -f migrate_users.sql
+
+# Install 2FA dependencies
+sudo /opt/sentinel-dashboard/venv/bin/pip install pyotp qrcode pillow
 
 # Configure agent to report (with audit)
 */5 * * * * sudo /usr/local/bin/sentinel --json --network --audit | curl -s -X POST \
@@ -334,9 +401,11 @@ sudo journalctl -u sentinel -f
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Web Dashboard                              │
+│  • Multi-user auth (RBAC)      • Two-factor authentication      │
+│  • Personal API keys           • Session management             │
+│  • Admin audit log             • Email notifications            │
 │  • Security posture summary    • Risk trend sparkline           │
-│  • Explainable risk factors    • Email alerts                   │
-│  • Event history timeline      • Learning indicator             │
+│  • Explainable risk factors    • Event history timeline         │
 │  • Multi-host view             • Historical charts              │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
@@ -413,20 +482,25 @@ c-sentinel/
 - [x] Auditd integration
 - [x] Risk scoring with deviation analysis
 - [x] Process attribution
-- [x] **Dashboard authentication**
-- [x] **Event history timeline**
-- [x] **Explainable risk factors**
-- [x] **Security posture summary**
-- [x] **Risk trend sparkline**
-- [x] **Learning/calibration indicator**
-- [x] **Email alerts**
+- [x] Dashboard authentication
+- [x] Event history timeline
+- [x] Explainable risk factors
+- [x] Security posture summary
+- [x] Risk trend sparkline
+- [x] Learning/calibration indicator
+- [x] Email alerts
+- [x] **Multi-user dashboard with roles**
+- [x] **Two-factor authentication (TOTP)**
+- [x] **Personal API keys**
+- [x] **Admin audit log**
+- [x] **Session management**
 
 ### Planned 📋
 - [ ] FreeBSD/macOS support
-- [ ] Multi-user dashboard with roles
 - [ ] Slack/Teams webhook alerts
 - [ ] Custom alert rules
 - [ ] PDF security reports
+- [ ] Host-level permissions
 
 ## License
 

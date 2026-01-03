@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block title %}Active Sessions - C-Sentinel{% endblock %}
+
+{% block header %}
+<header class="bg-gray-800 border-b border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/" class="text-gray-400 hover:text-white">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="monitor-smartphone" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Active Sessions</h1>
+                    <p class="text-xs text-gray-400">Manage logged-in users and devices</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="/admin/users" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="users" class="w-4 h-4 mr-1"></i>
+                Users
+            </a>
+            <a href="/admin/audit" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="scroll-text" class="w-4 h-4 mr-1"></i>
+                Audit Log
+            </a>
+            <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                {{ session.username }}
+            </a>
+            <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div class="text-gray-400 text-xs mb-1">Active Sessions</div>
+            <div id="stat-total" class="text-2xl font-bold">-</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div class="text-gray-400 text-xs mb-1">Unique Users</div>
+            <div id="stat-users" class="text-2xl font-bold">-</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div class="text-gray-400 text-xs mb-1">Active Now (5m)</div>
+            <div id="stat-active" class="text-2xl font-bold text-emerald-400">-</div>
+        </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-lg font-semibold">Sessions</h2>
+        <div class="flex space-x-3">
+            <button 
+                onclick="cleanupExpired()"
+                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center text-sm transition-colors"
+            >
+                <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                Cleanup Expired
+            </button>
+            <button 
+                onclick="revokeAllOthers()"
+                class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg flex items-center text-sm transition-colors"
+            >
+                <i data-lucide="shield-off" class="w-4 h-4 mr-2"></i>
+                Revoke All Others
+            </button>
+        </div>
+    </div>
+    
+    <!-- Sessions Table -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-900">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">User</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Device / Browser</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">IP Address</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Last Active</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Expires</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="sessions-table">
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                        Loading sessions...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Legend -->
+    <div class="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <h3 class="text-sm font-semibold mb-3">Session Status</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div class="flex items-center">
+                <span class="w-3 h-3 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                <span class="text-gray-400">Active now (< 5 min)</span>
+            </div>
+            <div class="flex items-center">
+                <span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                <span class="text-gray-400">Recent (< 1 hour)</span>
+            </div>
+            <div class="flex items-center">
+                <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
+                <span class="text-gray-400">Idle</span>
+            </div>
+            <div class="flex items-center">
+                <span class="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
+                <span class="text-gray-400">Current Session (You)</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const currentSessionToken = '{{ session.session_token or "" }}';
+    let sessions = [];
+    
+    // Load on page load
+    loadSessions();
+    
+    // Refresh every 30 seconds
+    setInterval(loadSessions, 30000);
+    
+    async function loadSessions() {
+        try {
+            const response = await fetch('/api/admin/sessions');
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            if (response.status === 403) {
+                document.getElementById('sessions-table').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-red-400">
+                            <i data-lucide="shield-x" class="w-8 h-8 mx-auto mb-2"></i>
+                            Access denied. Admin role required.
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+                return;
+            }
+            
+            const data = await response.json();
+            sessions = data.sessions;
+            
+            // Update stats
+            document.getElementById('stat-total').textContent = data.total;
+            document.getElementById('stat-users').textContent = data.unique_users;
+            document.getElementById('stat-active').textContent = data.active_now;
+            
+            renderSessions();
+        } catch (error) {
+            console.error('Failed to load sessions:', error);
+        }
+    }
+    
+    function renderSessions() {
+        const tbody = document.getElementById('sessions-table');
+        
+        if (sessions.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        No active sessions found.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = sessions.map(s => {
+            const isCurrentSession = s.is_current;
+            const lastActive = new Date(s.last_active);
+            const expiresAt = new Date(s.expires_at);
+            const now = new Date();
+            const minutesAgo = (now - lastActive) / 1000 / 60;
+            
+            // Status indicator
+            let statusClass, statusDot;
+            if (isCurrentSession) {
+                statusClass = 'text-purple-400';
+                statusDot = 'bg-purple-500';
+            } else if (minutesAgo < 5) {
+                statusClass = 'text-emerald-400';
+                statusDot = 'bg-emerald-500 animate-pulse';
+            } else if (minutesAgo < 60) {
+                statusClass = 'text-blue-400';
+                statusDot = 'bg-blue-500';
+            } else {
+                statusClass = 'text-gray-400';
+                statusDot = 'bg-gray-500';
+            }
+            
+            // Parse user agent for device info
+            const deviceInfo = parseUserAgent(s.user_agent);
+            
+            // Role badge
+            const roleClass = s.role === 'admin' ? 'bg-purple-900/50 text-purple-300' :
+                              s.role === 'operator' ? 'bg-blue-900/50 text-blue-300' :
+                              'bg-gray-700 text-gray-300';
+            
+            return `
+                <tr class="border-t border-gray-700 hover:bg-gray-700/50 ${isCurrentSession ? 'bg-purple-900/20' : ''}">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <span class="w-2 h-2 rounded-full ${statusDot} mr-3"></span>
+                            <div>
+                                <div class="font-medium ${statusClass}">${s.username}</div>
+                                <span class="text-xs px-1.5 py-0.5 rounded ${roleClass}">${s.role}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="flex items-center text-gray-400">
+                            <i data-lucide="${deviceInfo.icon}" class="w-4 h-4 mr-2"></i>
+                            <div>
+                                <div>${deviceInfo.browser}</div>
+                                <div class="text-xs text-gray-500">${deviceInfo.os}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-400 font-mono">${s.ip_address || '-'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-400">
+                        ${isCurrentSession ? '<span class="text-purple-400">Now</span>' : timeAgo(lastActive)}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${expiresAt.toLocaleDateString()}</td>
+                    <td class="px-4 py-3 text-right">
+                        ${isCurrentSession ? 
+                            '<span class="text-xs text-purple-400">Current</span>' :
+                            `<button onclick="revokeSession(${s.id}, '${s.username}')" class="text-gray-400 hover:text-red-400 p-1" title="Revoke Session">
+                                <i data-lucide="x-circle" class="w-4 h-4"></i>
+                            </button>`
+                        }
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        lucide.createIcons();
+    }
+    
+    function parseUserAgent(ua) {
+        if (!ua) return { browser: 'Unknown', os: 'Unknown', icon: 'monitor' };
+        
+        let browser = 'Unknown';
+        let os = 'Unknown';
+        let icon = 'monitor';
+        
+        // Browser detection
+        if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+        else if (ua.includes('Firefox')) browser = 'Firefox';
+        else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+        else if (ua.includes('Edg')) browser = 'Edge';
+        else if (ua.includes('curl')) browser = 'curl';
+        
+        // OS detection
+        if (ua.includes('Windows')) { os = 'Windows'; icon = 'monitor'; }
+        else if (ua.includes('Mac OS')) { os = 'macOS'; icon = 'monitor'; }
+        else if (ua.includes('Linux')) { os = 'Linux'; icon = 'monitor'; }
+        else if (ua.includes('iPhone') || ua.includes('iPad')) { os = 'iOS'; icon = 'smartphone'; }
+        else if (ua.includes('Android')) { os = 'Android'; icon = 'smartphone'; }
+        
+        return { browser, os, icon };
+    }
+    
+    function timeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+        return Math.floor(seconds / 86400) + ' days ago';
+    }
+    
+    async function revokeSession(sessionId, username) {
+        showConfirm(`Revoke session for "${username}"? They will be logged out.`, async () => {
+            try {
+                const response = await fetch(`/api/admin/sessions/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    Toast.success(`Session revoked for ${username}`);
+                    loadSessions();
+                } else {
+                    const result = await response.json();
+                    Toast.error(result.error || 'Failed to revoke session');
+                }
+            } catch (error) {
+                Toast.error('Network error. Please try again.');
+            }
+        });
+    }
+    
+    async function revokeAllOthers() {
+        showConfirm('Revoke ALL other sessions? This will log out everyone except you.', async () => {
+            try {
+                const response = await fetch('/api/admin/sessions/revoke-all-others', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    Toast.success(`Revoked ${result.revoked} session(s)`);
+                    loadSessions();
+                } else {
+                    const result = await response.json();
+                    Toast.error(result.error || 'Failed to revoke sessions');
+                }
+            } catch (error) {
+                Toast.error('Network error. Please try again.');
+            }
+        });
+    }
+    
+    async function cleanupExpired() {
+        try {
+            const response = await fetch('/api/admin/sessions/cleanup', {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                Toast.success(`Cleaned up ${result.removed} expired session(s)`);
+                loadSessions();
+            } else {
+                const result = await response.json();
+                Toast.error(result.error || 'Failed to cleanup sessions');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+</script>
+{% endblock %}

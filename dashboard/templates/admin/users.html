@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - C-Sentinel{% endblock %}
+
+{% block header %}
+<header class="bg-gray-800 border-b border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/" class="text-gray-400 hover:text-white">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">User Management</h1>
+                    <p class="text-xs text-gray-400">Manage dashboard users and roles</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="/admin/sessions" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="monitor-smartphone" class="w-4 h-4 mr-1"></i>
+                Sessions
+            </a>
+            <a href="/admin/audit" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="scroll-text" class="w-4 h-4 mr-1"></i>
+                Audit Log
+            </a>
+            <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                {{ session.username }}
+            </a>
+            <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Add User Button -->
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-lg font-semibold">Users</h2>
+        <button 
+            onclick="showAddUserModal()"
+            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center text-sm transition-colors"
+        >
+            <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i>
+            Add User
+        </button>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-900">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Username</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Role</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Last Login</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-table">
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                        Loading users...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Role Legend -->
+    <div class="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <h3 class="text-sm font-semibold mb-3">Role Permissions</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+                <span class="inline-block px-2 py-1 rounded bg-purple-900/50 text-purple-300 text-xs font-semibold mb-2">Admin</span>
+                <p class="text-gray-400">Full access. Manage users, hosts, and all settings.</p>
+            </div>
+            <div>
+                <span class="inline-block px-2 py-1 rounded bg-blue-900/50 text-blue-300 text-xs font-semibold mb-2">Operator</span>
+                <p class="text-gray-400">View all hosts. Acknowledge events, reset counters.</p>
+            </div>
+            <div>
+                <span class="inline-block px-2 py-1 rounded bg-gray-700 text-gray-300 text-xs font-semibold mb-2">Viewer</span>
+                <p class="text-gray-400">Read-only access to dashboard and hosts.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div id="user-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md mx-4">
+        <h3 id="modal-title" class="text-lg font-semibold mb-4">Add User</h3>
+        
+        <form id="user-form" onsubmit="saveUser(event)">
+            <input type="hidden" id="edit-user-id">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Username</label>
+                <input 
+                    type="text" 
+                    id="input-username"
+                    required
+                    minlength="3"
+                    maxlength="64"
+                    pattern="[a-z0-9_-]+"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="username"
+                >
+                <p class="text-xs text-gray-500 mt-1">Lowercase letters, numbers, underscore, hyphen</p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Email (optional)</label>
+                <input 
+                    type="email" 
+                    id="input-email"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="user@example.com"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-400 mb-2">
+                    Password <span id="password-hint" class="text-xs text-gray-500">(min 8 characters)</span>
+                </label>
+                <input 
+                    type="password" 
+                    id="input-password"
+                    minlength="8"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="••••••••"
+                >
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Role</label>
+                <select 
+                    id="input-role"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                >
+                    <option value="viewer">Viewer</option>
+                    <option value="operator">Operator</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            
+            <div id="modal-error" class="mb-4 p-3 rounded-lg bg-red-900/50 border border-red-700 text-red-300 hidden">
+                <span id="modal-error-text"></span>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button 
+                    type="button"
+                    onclick="hideModal()"
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                    Cancel
+                </button>
+                <button 
+                    type="submit"
+                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                >
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md mx-4">
+        <h3 class="text-lg font-semibold mb-4 text-red-400">Delete User</h3>
+        <p class="text-gray-300 mb-6">Are you sure you want to delete <strong id="delete-username"></strong>? This action can be undone by an admin.</p>
+        
+        <div class="flex justify-end space-x-3">
+            <button 
+                onclick="hideDeleteModal()"
+                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+                Cancel
+            </button>
+            <button 
+                onclick="confirmDelete()"
+                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let users = [];
+    let deleteUserId = null;
+    
+    // Load users on page load
+    loadUsers();
+    
+    async function loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            if (response.status === 403) {
+                document.getElementById('users-table').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-red-400">
+                            <i data-lucide="shield-x" class="w-8 h-8 mx-auto mb-2"></i>
+                            Access denied. Admin role required.
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+                return;
+            }
+            
+            users = await response.json();
+            renderUsers();
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        }
+    }
+    
+    function renderUsers() {
+        const tbody = document.getElementById('users-table');
+        
+        if (users.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        No users found. Add one to get started.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = users.map(user => {
+            const roleClass = user.role === 'admin' ? 'bg-purple-900/50 text-purple-300' :
+                              user.role === 'operator' ? 'bg-blue-900/50 text-blue-300' :
+                              'bg-gray-700 text-gray-300';
+            
+            const statusClass = user.active ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300';
+            const statusText = user.active ? 'Active' : 'Disabled';
+            
+            const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+            
+            // Toggle button - show enable for disabled users, disable for active users
+            const toggleIcon = user.active ? 'user-x' : 'user-check';
+            const toggleTitle = user.active ? 'Disable user' : 'Enable user';
+            const toggleColor = user.active ? 'hover:text-yellow-400' : 'hover:text-emerald-400';
+            
+            return `
+                <tr class="border-t border-gray-700 hover:bg-gray-700/50 ${!user.active ? 'opacity-60' : ''}">
+                    <td class="px-4 py-3 font-medium">${user.username}</td>
+                    <td class="px-4 py-3 text-gray-400">${user.email || '-'}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${roleClass}">${user.role}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-400">${lastLogin}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${statusClass}">${statusText}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="toggleUserStatus(${user.id}, ${user.active})" class="text-gray-400 ${toggleColor} p-1" title="${toggleTitle}">
+                            <i data-lucide="${toggleIcon}" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="editUser(${user.id})" class="text-gray-400 hover:text-white p-1 ml-2" title="Edit">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="showDeleteModal(${user.id}, '${user.username}')" class="text-gray-400 hover:text-red-400 p-1 ml-2" title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        lucide.createIcons();
+    }
+    
+    function showAddUserModal() {
+        document.getElementById('modal-title').textContent = 'Add User';
+        document.getElementById('edit-user-id').value = '';
+        document.getElementById('input-username').value = '';
+        document.getElementById('input-username').disabled = false;
+        document.getElementById('input-email').value = '';
+        document.getElementById('input-password').value = '';
+        document.getElementById('input-password').required = true;
+        document.getElementById('password-hint').textContent = '(min 8 characters)';
+        document.getElementById('input-role').value = 'viewer';
+        document.getElementById('modal-error').classList.add('hidden');
+        
+        document.getElementById('user-modal').classList.remove('hidden');
+        document.getElementById('user-modal').classList.add('flex');
+        document.getElementById('input-username').focus();
+    }
+    
+    function editUser(userId) {
+        const user = users.find(u => u.id === userId);
+        if (!user) return;
+        
+        document.getElementById('modal-title').textContent = 'Edit User';
+        document.getElementById('edit-user-id').value = userId;
+        document.getElementById('input-username').value = user.username;
+        document.getElementById('input-username').disabled = true;
+        document.getElementById('input-email').value = user.email || '';
+        document.getElementById('input-password').value = '';
+        document.getElementById('input-password').required = false;
+        document.getElementById('password-hint').textContent = '(leave blank to keep current)';
+        document.getElementById('input-role').value = user.role;
+        document.getElementById('modal-error').classList.add('hidden');
+        
+        document.getElementById('user-modal').classList.remove('hidden');
+        document.getElementById('user-modal').classList.add('flex');
+    }
+    
+    function hideModal() {
+        document.getElementById('user-modal').classList.add('hidden');
+        document.getElementById('user-modal').classList.remove('flex');
+    }
+    
+    async function saveUser(event) {
+        event.preventDefault();
+        
+        const userId = document.getElementById('edit-user-id').value;
+        const isEdit = !!userId;
+        
+        const data = {
+            username: document.getElementById('input-username').value.toLowerCase(),
+            email: document.getElementById('input-email').value,
+            role: document.getElementById('input-role').value
+        };
+        
+        const password = document.getElementById('input-password').value;
+        if (password) {
+            data.password = password;
+        }
+        
+        try {
+            const url = isEdit ? `/api/users/${userId}` : '/api/users';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                document.getElementById('modal-error-text').textContent = result.error || 'Failed to save user';
+                document.getElementById('modal-error').classList.remove('hidden');
+                return;
+            }
+            
+            hideModal();
+            loadUsers();
+            
+        } catch (error) {
+            document.getElementById('modal-error-text').textContent = 'Network error. Please try again.';
+            document.getElementById('modal-error').classList.remove('hidden');
+        }
+    }
+    
+    function showDeleteModal(userId, username) {
+        deleteUserId = userId;
+        document.getElementById('delete-username').textContent = username;
+        document.getElementById('delete-modal').classList.remove('hidden');
+        document.getElementById('delete-modal').classList.add('flex');
+    }
+    
+    function hideDeleteModal() {
+        deleteUserId = null;
+        document.getElementById('delete-modal').classList.add('hidden');
+        document.getElementById('delete-modal').classList.remove('flex');
+    }
+    
+    async function confirmDelete() {
+        if (!deleteUserId) return;
+        
+        try {
+            const response = await fetch(`/api/users/${deleteUserId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                hideDeleteModal();
+                Toast.success('User disabled successfully');
+                loadUsers();
+            } else {
+                const result = await response.json();
+                Toast.error(result.error || 'Failed to delete user');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+    
+    async function toggleUserStatus(userId, currentlyActive) {
+        const action = currentlyActive ? 'disable' : 'enable';
+        const user = users.find(u => u.id === userId);
+        
+        showConfirm(`Are you sure you want to ${action} user "${user?.username}"?`, async () => {
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active: !currentlyActive })
+                });
+                
+                if (response.ok) {
+                    Toast.success(`User ${action}d successfully`);
+                    loadUsers();
+                } else {
+                    const result = await response.json();
+                    Toast.error(result.error || `Failed to ${action} user`);
+                }
+            } catch (error) {
+                Toast.error('Network error. Please try again.');
+            }
+        });
+    }
+</script>
+{% endblock %}

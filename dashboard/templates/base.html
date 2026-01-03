@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}C-Sentinel{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.svg') }}">
+    
+    <!-- Common CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Common Styles -->
+    <style>
+        /* Status colors */
+        .status-ok { color: #22c55e; }
+        .status-warning { color: #eab308; }
+        .status-critical { color: #ef4444; }
+        .status-stale { color: #6b7280; }
+        .status-unknown { color: #6b7280; }
+        
+        .bg-status-ok { background-color: #22c55e; }
+        .bg-status-warning { background-color: #eab308; }
+        .bg-status-critical { background-color: #ef4444; }
+        .bg-status-stale { background-color: #6b7280; }
+        
+        /* Risk colors */
+        .risk-low { color: #22c55e; background-color: rgba(34, 197, 94, 0.1); }
+        .risk-medium { color: #eab308; background-color: rgba(234, 179, 8, 0.1); }
+        .risk-high { color: #f97316; background-color: rgba(249, 115, 22, 0.1); }
+        .risk-critical { color: #ef4444; background-color: rgba(239, 68, 68, 0.1); }
+        
+        .bg-risk-low { background-color: rgba(34, 197, 94, 0.2); }
+        .bg-risk-medium { background-color: rgba(234, 179, 8, 0.2); }
+        .bg-risk-high { background-color: rgba(249, 115, 22, 0.2); }
+        .bg-risk-critical { background-color: rgba(239, 68, 68, 0.2); }
+        
+        /* Animations */
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse-dot { animation: pulse-dot 2s infinite; }
+        
+        /* Card hover effect */
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Toast animations */
+        @keyframes toast-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toast-out {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-enter { animation: toast-in 0.3s ease-out; }
+        .toast-exit { animation: toast-out 0.3s ease-in forwards; }
+    </style>
+    
+    {% block head %}{% endblock %}
+    
+    <!-- Analytics -->
+    {% if config.ANALYTICS_SCRIPT %}
+    {{ config.ANALYTICS_SCRIPT | safe }}
+    {% endif %}
+</head>
+<body class="{% block body_class %}bg-gray-900 text-gray-100 min-h-screen{% endblock %}">
+    {% block body %}
+    {% block header %}{% endblock %}
+    
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col space-y-2"></div>
+    
+    {% block footer %}
+    <footer class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center text-sm text-gray-500 border-t border-gray-800 mt-8">
+        <span>C-Sentinel v{{ config.VERSION }}</span>
+        <span>Last updated: <span id="last-updated">-</span></span>
+        <a href="https://github.com/williamofai/c-sentinel" class="hover:text-gray-300 flex items-center">
+            <i data-lucide="github" class="w-4 h-4 mr-1"></i>
+            GitHub
+        </a>
+    </footer>
+    {% endblock %}
+    {% endblock %}
+    
+    <!-- Common Scripts -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Update last-updated time
+        function updateLastUpdated() {
+            const el = document.getElementById('last-updated');
+            if (el) {
+                el.textContent = new Date().toLocaleTimeString();
+            }
+        }
+        updateLastUpdated();
+        
+        // Toast notification system
+        const Toast = {
+            container: null,
+            
+            init() {
+                this.container = document.getElementById('toast-container');
+            },
+            
+            show(message, type = 'info', duration = 4000) {
+                if (!this.container) this.init();
+                
+                const toast = document.createElement('div');
+                toast.className = `toast-enter flex items-center p-4 rounded-lg shadow-lg max-w-sm ${this.getTypeClasses(type)}`;
+                
+                const icon = this.getIcon(type);
+                toast.innerHTML = `
+                    <i data-lucide="${icon}" class="w-5 h-5 mr-3 flex-shrink-0"></i>
+                    <span class="flex-1 text-sm">${this.escapeHtml(message)}</span>
+                    <button onclick="Toast.dismiss(this.parentElement)" class="ml-3 opacity-70 hover:opacity-100">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+                
+                this.container.appendChild(toast);
+                lucide.createIcons();
+                
+                if (duration > 0) {
+                    setTimeout(() => this.dismiss(toast), duration);
+                }
+                
+                return toast;
+            },
+            
+            dismiss(toast) {
+                if (!toast || !toast.parentElement) return;
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            },
+            
+            getTypeClasses(type) {
+                const classes = {
+                    success: 'bg-emerald-900/90 text-emerald-100 border border-emerald-700',
+                    error: 'bg-red-900/90 text-red-100 border border-red-700',
+                    warning: 'bg-yellow-900/90 text-yellow-100 border border-yellow-700',
+                    info: 'bg-blue-900/90 text-blue-100 border border-blue-700'
+                };
+                return classes[type] || classes.info;
+            },
+            
+            getIcon(type) {
+                const icons = {
+                    success: 'check-circle',
+                    error: 'alert-circle',
+                    warning: 'alert-triangle',
+                    info: 'info'
+                };
+                return icons[type] || icons.info;
+            },
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+            
+            // Convenience methods
+            success(message, duration) { return this.show(message, 'success', duration); },
+            error(message, duration) { return this.show(message, 'error', duration); },
+            warning(message, duration) { return this.show(message, 'warning', duration); },
+            info(message, duration) { return this.show(message, 'info', duration); }
+        };
+        
+        // Modern confirm dialog
+        function showConfirm(message, onConfirm, onCancel) {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+            overlay.innerHTML = `
+                <div class="bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-xl border border-gray-700">
+                    <p class="text-gray-100 mb-6">${Toast.escapeHtml(message)}</p>
+                    <div class="flex justify-end space-x-3">
+                        <button id="confirm-cancel" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">
+                            Cancel
+                        </button>
+                        <button id="confirm-ok" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm transition-colors">
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            overlay.querySelector('#confirm-cancel').onclick = () => {
+                overlay.remove();
+                if (onCancel) onCancel();
+            };
+            
+            overlay.querySelector('#confirm-ok').onclick = () => {
+                overlay.remove();
+                if (onConfirm) onConfirm();
+            };
+            
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    if (onCancel) onCancel();
+                }
+            };
+        }
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,41 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ hostname }} - C-Sentinel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .status-ok { color: #22c55e; }
-        .status-warning { color: #eab308; }
-        .status-critical { color: #ef4444; }
-        .status-stale { color: #6b7280; }
-        
-        .risk-low { color: #22c55e; background-color: rgba(34, 197, 94, 0.1); }
-        .risk-medium { color: #eab308; background-color: rgba(234, 179, 8, 0.1); }
-        .risk-high { color: #f97316; background-color: rgba(249, 115, 22, 0.1); }
-        .risk-critical { color: #ef4444; background-color: rgba(239, 68, 68, 0.1); }
-        
-        pre { white-space: pre-wrap; word-wrap: break-word; }
-        
-        .chart-container {
-            position: relative;
-            height: 200px;
-            width: 100%;
-        }
-        
-        .event-type-auth_failure { border-left-color: #ef4444; }
-        .event-type-brute_force { border-left-color: #dc2626; }
-        .event-type-sudo { border-left-color: #3b82f6; }
-        .event-type-file_access { border-left-color: #f59e0b; }
-        .event-type-selinux_denial { border-left-color: #8b5cf6; }
-        .event-type-apparmor_denial { border-left-color: #8b5cf6; }
-    </style>
-</head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <!-- Header -->
+{% extends "base.html" %}
+
+{% block title %}{{ hostname }} - C-Sentinel{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+    
+    .chart-container {
+        position: relative;
+        height: 200px;
+        width: 100%;
+    }
+    
+    .event-type-auth_failure { border-left-color: #ef4444; }
+    .event-type-brute_force { border-left-color: #dc2626; }
+    .event-type-sudo { border-left-color: #3b82f6; }
+    .event-type-file_access { border-left-color: #f59e0b; }
+    .event-type-selinux_denial { border-left-color: #8b5cf6; }
+    .event-type-apparmor_denial { border-left-color: #8b5cf6; }
+</style>
+{% endblock %}
+
+{% block header %}
     <header class="bg-gray-800 border-b border-gray-700">
         <div class="max-w-7xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
@@ -59,15 +46,28 @@
                         </span>
                     </div>
                 </div>
-                <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
-                    <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
-                    Logout
-                </a>
+                <div class="flex items-center space-x-4">
+                    {% if session.role == 'admin' %}
+                    <a href="/admin/users" class="text-gray-400 hover:text-white flex items-center text-sm">
+                        <i data-lucide="users" class="w-4 h-4 mr-1"></i>
+                        Users
+                    </a>
+                    {% endif %}
+                    <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                        <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                        {{ session.username }}
+                    </a>
+                    <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
+                        <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
+                        Logout
+                    </a>
+                </div>
             </div>
         </div>
     </header>
+{% endblock %}
 
-    <!-- Main Content -->
+{% block content %}
     <main class="max-w-7xl mx-auto px-4 py-8">
         <!-- Quick Stats -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
@@ -416,16 +416,19 @@
             </div>
         </div>
     </main>
+{% endblock %}
 
-    <!-- Footer -->
-    <footer class="bg-gray-800 border-t border-gray-700 py-2 px-4 mt-8">
-        <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-500">
-            <span>C-Sentinel v0.5.0</span>
-            <span id="last-update">Last updated: -</span>
-        </div>
-    </footer>
+{% block footer %}
+<footer class="bg-gray-800 border-t border-gray-700 py-2 px-4 mt-8">
+    <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-500">
+        <span>C-Sentinel v{{ config.VERSION }}</span>
+        <span id="last-update">Last updated: -</span>
+    </div>
+</footer>
+{% endblock %}
 
-    <script>
+{% block scripts %}
+<script>
         const hostname = '{{ hostname }}';
         let memoryChart, loadChart;
         let hostData = null;
@@ -722,27 +725,25 @@
 
         // Reset audit totals
         async function resetAuditTotals() {
-            if (!confirm('Reset all security counters? This marks current events as acknowledged.')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/hosts/${hostname}/reset-audit`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    alert('Counters reset successfully');
-                    loadHostData();
-                    loadEvents();
-                } else {
-                    const error = await response.json();
-                    alert('Reset failed: ' + (error.error || 'Unknown error'));
+            showConfirm('Reset all security counters? This marks current events as acknowledged.', async () => {
+                try {
+                    const response = await fetch(`/api/hosts/${hostname}/reset-audit`, {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        Toast.success('Counters reset successfully');
+                        loadHostData();
+                        loadEvents();
+                    } else {
+                        const error = await response.json();
+                        Toast.error('Reset failed: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Reset failed:', error);
+                    Toast.error('Reset failed: ' + error.message);
                 }
-            } catch (error) {
-                console.error('Reset failed:', error);
-                alert('Reset failed: ' + error.message);
-            }
+            });
         }
 
         // Load events
@@ -816,21 +817,25 @@
 
         // Acknowledge all events
         async function acknowledgeAllEvents() {
-            if (!confirm('Acknowledge all events?')) return;
-            
-            try {
-                const response = await fetch(`/api/hosts/${hostname}/events/acknowledge`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
-                
-                if (response.ok) {
-                    loadEvents();
+            showConfirm('Acknowledge all events?', async () => {
+                try {
+                    const response = await fetch(`/api/hosts/${hostname}/events/acknowledge`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                    
+                    if (response.ok) {
+                        Toast.success('Events acknowledged');
+                        loadEvents();
+                    } else {
+                        Toast.error('Failed to acknowledge events');
+                    }
+                } catch (error) {
+                    console.error('Failed to acknowledge events:', error);
+                    Toast.error('Failed to acknowledge events');
                 }
-            } catch (error) {
-                console.error('Failed to acknowledge events:', error);
-            }
+            });
         }
 
         // Load host data
@@ -1151,5 +1156,4 @@
             loadLatestFingerprint();
         }, 30000);
     </script>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}API Keys - C-Sentinel{% endblock %}
+
+{% block header %}
+<header class="bg-gray-800 border-b border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/profile" class="text-gray-400 hover:text-white">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="key" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">API Keys</h1>
+                    <p class="text-xs text-gray-400">Manage your personal API keys</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            {% if session.role == 'admin' %}
+            <a href="/admin/users" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="users" class="w-4 h-4 mr-1"></i>
+                Users
+            </a>
+            {% endif %}
+            <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                {{ session.username }}
+            </a>
+            <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+    <!-- Info Box -->
+    <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
+        <div class="flex items-start">
+            <i data-lucide="info" class="w-5 h-5 text-blue-400 mr-3 mt-0.5"></i>
+            <div class="text-sm text-blue-200">
+                <p class="font-medium mb-1">About API Keys</p>
+                <p class="text-blue-300">API keys allow you to authenticate with the C-Sentinel API for automation. 
+                Use them in scripts, CI/CD pipelines, or monitoring integrations. 
+                Each key inherits your role permissions.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Key Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Create New API Key</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="md:col-span-2">
+                <label class="block text-xs text-gray-400 mb-1">Name</label>
+                <input 
+                    type="text" 
+                    id="key-name" 
+                    placeholder="e.g., CI/CD Pipeline, Monitoring Script"
+                    maxlength="100"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                >
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Expires</label>
+                <select id="key-expires" class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+                    <option value="">Never</option>
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                    <option value="180">6 months</option>
+                    <option value="365">1 year</option>
+                </select>
+            </div>
+        </div>
+        
+        <button 
+            onclick="createKey()"
+            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center text-sm transition-colors"
+        >
+            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+            Create API Key
+        </button>
+    </div>
+    
+    <!-- New Key Display (hidden by default) -->
+    <div id="new-key-display" class="hidden bg-yellow-900/30 border border-yellow-700 rounded-lg p-6 mb-6">
+        <div class="flex items-start mb-4">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-400 mr-3 mt-0.5"></i>
+            <div>
+                <p class="font-medium text-yellow-200">Copy your API key now!</p>
+                <p class="text-sm text-yellow-300">This is the only time you'll see the full key. Store it securely.</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center bg-gray-900 rounded-lg p-3 mb-4">
+            <code id="new-key-value" class="flex-1 font-mono text-emerald-400 break-all"></code>
+            <button onclick="copyKey()" class="ml-3 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
+        </div>
+        
+        <button onclick="hideNewKey()" class="text-sm text-gray-400 hover:text-white">
+            I've copied my key
+        </button>
+    </div>
+    
+    <!-- Existing Keys -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700">
+        <div class="p-4 border-b border-gray-700">
+            <h2 class="font-semibold">Your API Keys</h2>
+        </div>
+        
+        <div id="keys-list" class="divide-y divide-gray-700">
+            <div class="p-8 text-center text-gray-500">
+                <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                Loading...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Usage Example -->
+    <div class="mt-6 bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h3 class="font-semibold mb-3">Usage Example</h3>
+        <div class="bg-gray-900 rounded-lg p-4 font-mono text-sm">
+            <div class="text-gray-400"># Using curl to send a fingerprint</div>
+            <div class="text-emerald-400 mt-2">curl -X POST https://sentinel.speytech.com/api/ingest \</div>
+            <div class="text-emerald-400 pl-4">-H "Content-Type: application/json" \</div>
+            <div class="text-emerald-400 pl-4">-H "X-API-Key: sk_your_key_here" \</div>
+            <div class="text-emerald-400 pl-4">-d @fingerprint.json</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let newKeyValue = '';
+    
+    // Load keys on page load
+    loadKeys();
+    
+    async function loadKeys() {
+        try {
+            const response = await fetch('/api/me/api-keys');
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            const keys = await response.json();
+            renderKeys(keys);
+        } catch (error) {
+            console.error('Failed to load keys:', error);
+        }
+    }
+    
+    function renderKeys(keys) {
+        const container = document.getElementById('keys-list');
+        
+        if (keys.length === 0) {
+            container.innerHTML = `
+                <div class="p-8 text-center text-gray-500">
+                    <i data-lucide="key" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                    <p>No API keys yet</p>
+                    <p class="text-sm">Create one above to get started</p>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
+        
+        container.innerHTML = keys.map(key => {
+            const createdAt = new Date(key.created_at).toLocaleDateString();
+            const lastUsed = key.last_used ? timeAgo(new Date(key.last_used)) : 'Never';
+            const expiresAt = key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never';
+            const isExpired = key.expires_at && new Date(key.expires_at) < new Date();
+            
+            return `
+                <div class="p-4 ${!key.active || isExpired ? 'opacity-50' : ''}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <span class="font-medium">${escapeHtml(key.name)}</span>
+                                ${!key.active ? '<span class="ml-2 px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded">Disabled</span>' : ''}
+                                ${isExpired ? '<span class="ml-2 px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded">Expired</span>' : ''}
+                            </div>
+                            <div class="text-sm text-gray-400 mt-1">
+                                <code class="text-gray-500">${key.prefix}...</code>
+                                <span class="mx-2">•</span>
+                                Created ${createdAt}
+                                <span class="mx-2">•</span>
+                                Last used: ${lastUsed}
+                                <span class="mx-2">•</span>
+                                Expires: ${expiresAt}
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="toggleKey(${key.id})" class="p-2 text-gray-400 hover:text-white" title="${key.active ? 'Disable' : 'Enable'}">
+                                <i data-lucide="${key.active ? 'pause' : 'play'}" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteKey(${key.id}, '${escapeHtml(key.name)}')" class="p-2 text-gray-400 hover:text-red-400" title="Delete">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        lucide.createIcons();
+    }
+    
+    async function createKey() {
+        const name = document.getElementById('key-name').value.trim();
+        const expiresSelect = document.getElementById('key-expires');
+        const expiresDays = expiresSelect.value ? parseInt(expiresSelect.value) : null;
+        
+        if (!name) {
+            Toast.warning('Please enter a name for the API key');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/me/api-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, expires_days: expiresDays })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Show the new key
+                newKeyValue = result.key;
+                document.getElementById('new-key-value').textContent = result.key;
+                document.getElementById('new-key-display').classList.remove('hidden');
+                
+                // Clear form
+                document.getElementById('key-name').value = '';
+                expiresSelect.value = '';
+                
+                Toast.success('API key created successfully');
+                
+                // Reload list
+                loadKeys();
+            } else {
+                Toast.error(result.error || 'Failed to create key');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+    
+    function copyKey() {
+        navigator.clipboard.writeText(newKeyValue).then(() => {
+            Toast.success('API key copied to clipboard!');
+        }).catch(() => {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = newKeyValue;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            Toast.success('API key copied to clipboard!');
+        });
+    }
+    
+    function hideNewKey() {
+        document.getElementById('new-key-display').classList.add('hidden');
+        newKeyValue = '';
+    }
+    
+    async function toggleKey(keyId) {
+        try {
+            const response = await fetch(`/api/me/api-keys/${keyId}/toggle`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                Toast.success(result.active ? 'API key enabled' : 'API key disabled');
+                loadKeys();
+            } else {
+                const result = await response.json();
+                Toast.error(result.error || 'Failed to toggle key');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+    
+    async function deleteKey(keyId, name) {
+        showConfirm(`Delete API key "${name}"? This cannot be undone and any systems using this key will stop working.`, async () => {
+            try {
+                const response = await fetch(`/api/me/api-keys/${keyId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    Toast.success('API key deleted');
+                    loadKeys();
+                } else {
+                    const result = await response.json();
+                    Toast.error(result.error || 'Failed to delete key');
+                }
+            } catch (error) {
+                Toast.error('Network error. Please try again.');
+            }
+        });
+    }
+    
+    function timeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+        if (seconds < 604800) return Math.floor(seconds / 86400) + ' days ago';
+        return date.toLocaleDateString();
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

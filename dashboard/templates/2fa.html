@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Authentication - C-Sentinel{% endblock %}
+
+{% block header %}
+<header class="bg-gray-800 border-b border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/profile" class="text-gray-400 hover:text-white">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Two-Factor Authentication</h1>
+                    <p class="text-xs text-gray-400">Secure your account with 2FA</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="/profile" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="user" class="w-4 h-4 mr-1"></i>
+                {{ session.username }}
+            </a>
+            <a href="/logout" class="text-gray-400 hover:text-white flex items-center text-sm">
+                <i data-lucide="log-out" class="w-4 h-4 mr-1"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-8">
+    {% if error %}
+    <div class="mb-6 p-4 rounded-lg bg-red-900/50 border border-red-700 text-red-300">
+        <div class="flex items-center">
+            <i data-lucide="alert-circle" class="w-5 h-5 mr-2"></i>
+            {{ error }}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Current Status -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                {% if user.totp_enabled %}
+                <div class="w-12 h-12 bg-emerald-900/50 rounded-full flex items-center justify-center mr-4">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-emerald-400"></i>
+                </div>
+                <div>
+                    <h2 class="font-semibold text-emerald-400">2FA is Enabled</h2>
+                    <p class="text-sm text-gray-400">Your account is protected with two-factor authentication</p>
+                </div>
+                {% else %}
+                <div class="w-12 h-12 bg-yellow-900/50 rounded-full flex items-center justify-center mr-4">
+                    <i data-lucide="shield-off" class="w-6 h-6 text-yellow-400"></i>
+                </div>
+                <div>
+                    <h2 class="font-semibold text-yellow-400">2FA is Disabled</h2>
+                    <p class="text-sm text-gray-400">Enable 2FA to add an extra layer of security</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% if user.totp_enabled %}
+    <!-- Disable 2FA Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h3 class="font-semibold mb-4">Disable Two-Factor Authentication</h3>
+        <p class="text-sm text-gray-400 mb-4">
+            Enter your password to disable 2FA. This will make your account less secure.
+        </p>
+        
+        <div class="mb-4">
+            <label class="block text-xs text-gray-400 mb-1">Password</label>
+            <input 
+                type="password" 
+                id="disable-password"
+                class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500"
+                placeholder="Enter your password"
+            >
+        </div>
+        
+        <button 
+            onclick="disable2FA()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center text-sm transition-colors"
+        >
+            <i data-lucide="shield-off" class="w-4 h-4 mr-2"></i>
+            Disable 2FA
+        </button>
+    </div>
+    
+    {% else %}
+    <!-- Setup 2FA Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h3 class="font-semibold mb-4">Set Up Two-Factor Authentication</h3>
+        
+        <!-- Step 1: Start Setup -->
+        <div id="step-1">
+            <p class="text-sm text-gray-400 mb-4">
+                Two-factor authentication adds an extra layer of security by requiring a code from your phone in addition to your password.
+            </p>
+            
+            <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
+                <div class="flex items-start">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-400 mr-3 mt-0.5"></i>
+                    <div class="text-sm text-blue-200">
+                        <p class="font-medium mb-1">You'll need an authenticator app</p>
+                        <p class="text-blue-300">Download Google Authenticator, Authy, or any TOTP-compatible app on your phone.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button 
+                onclick="startSetup()"
+                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center text-sm transition-colors"
+            >
+                <i data-lucide="play" class="w-4 h-4 mr-2"></i>
+                Start Setup
+            </button>
+        </div>
+        
+        <!-- Step 2: Scan QR Code -->
+        <div id="step-2" class="hidden">
+            <div class="mb-6">
+                <p class="text-sm text-gray-400 mb-4">
+                    Scan this QR code with your authenticator app:
+                </p>
+                
+                <div class="flex justify-center mb-4">
+                    <div class="bg-white p-4 rounded-lg">
+                        <img id="qr-code" src="" alt="QR Code" class="w-48 h-48">
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <p class="text-xs text-gray-500 mb-2">Can't scan? Enter this code manually:</p>
+                    <code id="secret-code" class="px-3 py-1 bg-gray-900 rounded text-emerald-400 font-mono text-sm"></code>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-xs text-gray-400 mb-1">Enter the 6-digit code from your app</label>
+                <input 
+                    type="text" 
+                    id="verify-code"
+                    maxlength="6"
+                    pattern="[0-9]*"
+                    inputmode="numeric"
+                    class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-center text-2xl tracking-widest focus:outline-none focus:border-emerald-500"
+                    placeholder="000000"
+                >
+            </div>
+            
+            <div class="flex space-x-3">
+                <button 
+                    onclick="cancelSetup()"
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                >
+                    Cancel
+                </button>
+                <button 
+                    onclick="verifyCode()"
+                    class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center text-sm transition-colors"
+                >
+                    <i data-lucide="check" class="w-4 h-4 mr-2"></i>
+                    Verify & Enable
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Info Section -->
+    <div class="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <h3 class="font-semibold mb-3">About Two-Factor Authentication</h3>
+        <ul class="space-y-2 text-sm text-gray-400">
+            <li class="flex items-start">
+                <i data-lucide="check" class="w-4 h-4 text-emerald-500 mr-2 mt-0.5"></i>
+                Protects against password theft and phishing
+            </li>
+            <li class="flex items-start">
+                <i data-lucide="check" class="w-4 h-4 text-emerald-500 mr-2 mt-0.5"></i>
+                Works with standard authenticator apps (Google Authenticator, Authy, etc.)
+            </li>
+            <li class="flex items-start">
+                <i data-lucide="check" class="w-4 h-4 text-emerald-500 mr-2 mt-0.5"></i>
+                Codes refresh every 30 seconds
+            </li>
+            <li class="flex items-start">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-500 mr-2 mt-0.5"></i>
+                Keep backup codes or recovery options in case you lose your device
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let pendingSecret = '';
+    
+    async function startSetup() {
+        try {
+            const response = await fetch('/api/me/2fa/setup', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                pendingSecret = result.secret;
+                document.getElementById('qr-code').src = result.qr_code;
+                document.getElementById('secret-code').textContent = result.secret;
+                document.getElementById('step-1').classList.add('hidden');
+                document.getElementById('step-2').classList.remove('hidden');
+            } else {
+                Toast.error(result.error || 'Failed to start 2FA setup');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+    
+    function cancelSetup() {
+        pendingSecret = '';
+        document.getElementById('step-1').classList.remove('hidden');
+        document.getElementById('step-2').classList.add('hidden');
+        document.getElementById('verify-code').value = '';
+    }
+    
+    async function verifyCode() {
+        const code = document.getElementById('verify-code').value.trim();
+        
+        if (!code || code.length !== 6) {
+            Toast.warning('Please enter a 6-digit code');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/me/2fa/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                Toast.success('Two-factor authentication enabled!');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                Toast.error(result.error || 'Verification failed');
+            }
+        } catch (error) {
+            Toast.error('Network error. Please try again.');
+        }
+    }
+    
+    async function disable2FA() {
+        const password = document.getElementById('disable-password').value;
+        
+        if (!password) {
+            Toast.warning('Please enter your password');
+            return;
+        }
+        
+        showConfirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.', async () => {
+            try {
+                const response = await fetch('/api/me/2fa/disable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    Toast.success('Two-factor authentication disabled');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    Toast.error(result.error || 'Failed to disable 2FA');
+                }
+            } catch (error) {
+                Toast.error('Network error. Please try again.');
+            }
+        });
+    }
+    
+    // Auto-submit when 6 digits entered
+    document.getElementById('verify-code')?.addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length === 6) {
+            verifyCode();
+        }
+    });
+</script>
+{% endblock %}

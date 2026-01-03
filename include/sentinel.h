@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 
 /* Version and limits */
-#define SENTINEL_VERSION "0.5.8"
+#define SENTINEL_VERSION "0.6.0"
 #define MAX_PATH_LEN 4096
 #define MAX_PROCS 1024
 #define MAX_FDS_PER_PROC 256

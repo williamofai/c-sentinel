@@ -5,11 +5,18 @@
 A lightweight, portable system prober written in C that captures "system fingerprints" for AI-assisted analysis of non-obvious risks. Features auditd integration, explainable risk scoring, and a live web dashboard with email alerts.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.5-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 
 **Live Demo**: [sentinel.speytech.com](https://sentinel.speytech.com)
 
-![Dashboard Screenshot](docs/dashboard-security.png)
+### Security Dashboard
+![Security Dashboard](docs/main-dashboard.png)
+
+### Multi-Host Overview
+![Hosts Dashboard](docs/hosts-dashboard.png)
+
+### Secure Login
+![Login Page](docs/login-page.png)
 
 ## What's New in v0.5.x
 

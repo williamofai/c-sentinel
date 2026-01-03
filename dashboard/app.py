@@ -6,17 +6,19 @@ A web interface for viewing system fingerprints across multiple hosts.
 
 import os
 import json
+import hashlib
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-change-in-production')
 
 # Configuration
 DB_CONFIG = {
@@ -24,14 +26,17 @@ DB_CONFIG = {
     'port': os.environ.get('DB_PORT', '5432'),
     'database': os.environ.get('DB_NAME', 'sentinel'),
     'user': os.environ.get('DB_USER', 'sentinel'),
-    'password': os.environ.get('DB_PASSWORD', 'your_db_password'),
+    'password': os.environ.get('DB_PASSWORD', ''),
 }
 
-API_KEY = os.environ.get('SENTINEL_API_KEY', 'your_api_key')
+API_KEY = os.environ.get('SENTINEL_API_KEY', 'change-me-in-production')
+
+# Dashboard authentication
+ADMIN_PASSWORD_HASH = os.environ.get('SENTINEL_ADMIN_PASSWORD_HASH', '')
 
 # Email alerting configuration
 EMAIL_CONFIG = {
-    'enabled': os.environ.get('ALERT_EMAIL_ENABLED', 'true').lower() == 'true',
+    'enabled': os.environ.get('ALERT_EMAIL_ENABLED', 'false').lower() == 'true',
     'smtp_host': os.environ.get('ALERT_SMTP_HOST', 'smtp.gmail.com'),
     'smtp_port': int(os.environ.get('ALERT_SMTP_PORT', '587')),
     'smtp_user': os.environ.get('ALERT_SMTP_USER', ''),
@@ -129,7 +134,7 @@ Alerts Triggered:
 Risk Factors:
 {chr(10).join('  • ' + f['reason'] + ' (+' + str(f['weight']) + ')' for f in risk_factors) if risk_factors else '  None'}
 
-Dashboard: https://sentinel.speytech.com/host/{hostname}
+Dashboard: {os.environ.get('DASHBOARD_URL', 'https://your-dashboard.com')}/host/{hostname}
 
 ---
 This is an automated alert from C-Sentinel.
@@ -152,6 +157,48 @@ def require_api_key(f):
             return jsonify({'error': 'Invalid API key'}), 401
         return f(*args, **kwargs)
     return decorated
+
+
+def require_login(f):
+    """Decorator to require dashboard login."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not ADMIN_PASSWORD_HASH:
+            # No password configured, allow access
+            return f(*args, **kwargs)
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Dashboard login page."""
+    if not ADMIN_PASSWORD_HASH:
+        # No password configured, redirect to home
+        return redirect(url_for('index'))
+    
+    error = None
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        if password_hash == ADMIN_PASSWORD_HASH:
+            session['authenticated'] = True
+            session.permanent = True
+            return redirect(url_for('index'))
+        else:
+            error = 'Invalid password'
+    
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+def logout():
+    """Logout and clear session."""
+    session.clear()
+    return redirect(url_for('login'))
 
 
 # ============================================================
@@ -337,6 +384,7 @@ def ingest_fingerprint():
 
 
 @app.route('/api/hosts')
+@require_login
 def list_hosts():
     """List all known hosts."""
     conn = get_db()
@@ -391,6 +439,7 @@ def list_hosts():
 
 
 @app.route('/api/hosts/<hostname>')
+@require_login
 def get_host(hostname):
     """Get details for a specific host."""
     conn = get_db()
@@ -432,6 +481,7 @@ def get_host(hostname):
 
 
 @app.route('/api/hosts/<hostname>/latest')
+@require_login
 def get_latest_fingerprint(hostname):
     """Get the latest full fingerprint for a host."""
     conn = get_db()
@@ -461,6 +511,7 @@ def get_latest_fingerprint(hostname):
 
 
 @app.route('/api/stats')
+@require_login
 def get_stats():
     """Get overall statistics."""
     conn = get_db()
@@ -507,12 +558,14 @@ def get_stats():
 # ============================================================
 
 @app.route('/')
+@require_login
 def index():
     """Main dashboard page."""
     return render_template('index.html')
 
 
 @app.route('/host/<hostname>')
+@require_login
 def host_detail(hostname):
     """Host detail page."""
     return render_template('host.html', hostname=hostname)

@@ -29,9 +29,12 @@ A lightweight, portable system prober written in C that captures "system fingerp
 ![API Keys](docs/api-keys.png)
 
 ### Admin Features
-| Session Management | Audit Log |
-|--------------------|-----------|
-| ![Sessions](docs/sessions.png) | ![Audit Log](docs/audit-log.png) |
+
+#### Session Management
+![Sessions](docs/sessions.png)
+
+#### Audit Log
+![Audit Log](docs/audit-log.png)
 
 ### Secure Login
 ![Login Page](docs/login-page.png)

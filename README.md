@@ -321,10 +321,10 @@ C-Sentinel includes a web dashboard for monitoring multiple hosts in real-time.
 cd dashboard
 sudo ./install-dashboard.sh
 
-# Run database migration (for multi-user features)
-sudo -u postgres psql -d sentinel -f migrate_users.sql
+# Run database migration
+sudo -u postgres psql -d sentinel -f migrate.sql
 
-# Install 2FA dependencies
+# Install 2FA dependencies (optional)
 sudo /opt/sentinel-dashboard/venv/bin/pip install pyotp qrcode pillow
 
 # Configure agent to report (with audit)

@@ -119,6 +119,7 @@ c-sentinel/
 │   └── ...
 ├── dashboard/            # Flask web dashboard
 │   ├── app.py            # Main Flask application
+│   ├── migrate.sql       # Database schema (run once)
 │   ├── templates/        # HTML templates
 │   │   ├── base.html     # Base template with toast system
 │   │   ├── index.html    # Main dashboard
@@ -131,7 +132,6 @@ c-sentinel/
 │   │       ├── users.html
 │   │       ├── sessions.html
 │   │       └── audit.html
-│   └── migrate_users.sql # Database migration for multi-user
 └── docs/
     ├── AUDIT_SPEC.md     # Audit integration design
     └── DESIGN_DECISIONS.md
@@ -202,8 +202,8 @@ source venv/bin/activate
 # Install dependencies
 pip install flask psycopg2-binary gunicorn pyotp qrcode pillow
 
-# Run database migrations
-sudo -u postgres psql -d sentinel -f migrate_users.sql
+# Run database migration
+sudo -u postgres psql -d sentinel -f migrate.sql
 
 # Run development server
 FLASK_DEBUG=1 python app.py

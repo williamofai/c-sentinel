@@ -139,10 +139,18 @@
     <footer class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500 border-t border-gray-800 mt-8 space-y-2 sm:space-y-0">
         <span>C-Sentinel v{{ config.VERSION }}</span>
         <span class="hide-mobile">Last updated: <span id="last-updated">-</span></span>
-        <a href="https://github.com/williamofai/c-sentinel" class="hover:text-gray-300 flex items-center">
-            <i data-lucide="github" class="w-4 h-4 mr-1"></i>
-            GitHub
-        </a>
+        <div class="flex items-center space-x-4">
+            {% if session.demo_mode %}
+            <a href="/login?admin=1" class="hover:text-gray-300 flex items-center">
+                <i data-lucide="lock" class="w-4 h-4 mr-1"></i>
+                Admin
+            </a>
+            {% endif %}
+            <a href="https://github.com/williamofai/c-sentinel" class="hover:text-gray-300 flex items-center">
+                <i data-lucide="github" class="w-4 h-4 mr-1"></i>
+                GitHub
+            </a>
+        </div>
     </footer>
     {% endblock %}
     {% endblock %}

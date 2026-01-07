@@ -7,7 +7,8 @@
  *
  * https://github.com/williamofai/c-sentinel
  *
- * prober.c - System state capture via /proc filesystem
+ * prober.c - System state capture via /proc filesystem (Linux)
+ *            and sysctl/mach APIs (macOS)
  */
 
 #define _GNU_SOURCE
@@ -18,13 +19,13 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <ctype.h>
 #include <errno.h>
 
 #include "sentinel.h"
+#include "platform.h"
 
 /* ============================================================
  * Helper Functions
@@ -37,7 +38,12 @@ static void safe_strcpy(char *dest, const char *src, size_t dest_size) {
     dest[dest_size - 1] = '\0';
 }
 
-/* Count open file descriptors for a process */
+/* ============================================================
+ * File Descriptor Counting (Platform-Specific)
+ * ============================================================ */
+
+#ifdef PLATFORM_LINUX
+/* Count open file descriptors for a process via /proc */
 static int count_fds(pid_t pid) {
     char path[128];
     snprintf(path, sizeof(path), "/proc/%d/fd", pid);
@@ -56,6 +62,16 @@ static int count_fds(pid_t pid) {
     closedir(dir);
     return count;
 }
+#endif /* PLATFORM_LINUX */
+
+#ifdef PLATFORM_MACOS
+/* Count open file descriptors for a process via libproc */
+static int count_fds(pid_t pid) {
+    int buf_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, NULL, 0);
+    if (buf_size <= 0) return -1;
+    return buf_size / (int)PROC_PIDLISTFD_SIZE;
+}
+#endif /* PLATFORM_MACOS */
 
 /* ============================================================
  * System Info Probing
@@ -66,20 +82,20 @@ int probe_system_info(system_info_t *info) {
     
     memset(info, 0, sizeof(*info));
     
-    /* Hostname */
+    /* Hostname - portable */
     if (gethostname(info->hostname, sizeof(info->hostname)) != 0) {
         safe_strcpy(info->hostname, "unknown", sizeof(info->hostname));
     }
     
-    /* Kernel version via uname */
+    /* Kernel version via uname - portable */
     struct utsname uts;
     if (uname(&uts) == 0) {
-        /* Truncate safely - kernel_version is 128 bytes */
         snprintf(info->kernel_version, sizeof(info->kernel_version),
                  "%.60s %.60s", uts.sysname, uts.release);
     }
-    
-    /* System info: memory, uptime, load */
+
+#ifdef PLATFORM_LINUX
+    /* Linux: use sysinfo() */
     struct sysinfo si;
     if (sysinfo(&si) == 0) {
         info->total_ram = si.totalram * si.mem_unit;
@@ -93,13 +109,58 @@ int probe_system_info(system_info_t *info) {
     /* Calculate boot time */
     info->probe_time = time(NULL);
     info->boot_time = info->probe_time - info->uptime_seconds;
+
+#elif defined(PLATFORM_MACOS)
+    /* macOS: use sysctl and mach APIs */
     
+    /* Total RAM: sysctl hw.memsize */
+    int64_t memsize = 0;
+    size_t len = sizeof(memsize);
+    if (sysctlbyname("hw.memsize", &memsize, &len, NULL, 0) == 0) {
+        info->total_ram = (uint64_t)memsize;
+    }
+    
+    /* Free RAM: mach vm_statistics64 */
+    mach_port_t host_port = mach_host_self();
+    vm_statistics64_data_t vm_stat;
+    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+    
+    if (host_statistics64(host_port, HOST_VM_INFO64,
+                          (host_info64_t)&vm_stat, &count) == KERN_SUCCESS) {
+        vm_size_t page_size = 0;
+        host_page_size(host_port, &page_size);
+        
+        /* Free memory = free + inactive (pages that can be reclaimed) */
+        info->free_ram = ((uint64_t)vm_stat.free_count + 
+                          (uint64_t)vm_stat.inactive_count) * page_size;
+    }
+    
+    /* Uptime and boot time: sysctl kern.boottime */
+    struct timeval boottime;
+    len = sizeof(boottime);
+    if (sysctlbyname("kern.boottime", &boottime, &len, NULL, 0) == 0) {
+        info->boot_time = boottime.tv_sec;
+        info->probe_time = time(NULL);
+        info->uptime_seconds = (uint64_t)(info->probe_time - info->boot_time);
+    }
+    
+    /* Load average: getloadavg() */
+    double loadavg[3];
+    if (getloadavg(loadavg, 3) != -1) {
+        info->load_avg[0] = loadavg[0];
+        info->load_avg[1] = loadavg[1];
+        info->load_avg[2] = loadavg[2];
+    }
+#endif
+
     return 0;
 }
 
 /* ============================================================
- * Process Probing
+ * Process Probing (Linux)
  * ============================================================ */
+
+#ifdef PLATFORM_LINUX
 
 /* Parse /proc/[pid]/stat for process info */
 static int parse_proc_stat(pid_t pid, process_info_t *proc) {
@@ -111,61 +172,67 @@ static int parse_proc_stat(pid_t pid, process_info_t *proc) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     
-    if (!fgets(buf, sizeof(buf), f)) {
+    if (fgets(buf, sizeof(buf), f) == NULL) {
         fclose(f);
         return -1;
     }
     fclose(f);
     
-    /* Parse the stat line - format is complex due to comm field */
-    /* pid (comm) state ppid ... */
+    /* Parse the stat line - format is complex due to comm field
+     * which may contain spaces and parentheses */
     char *start = strchr(buf, '(');
     char *end = strrchr(buf, ')');
-    
     if (!start || !end) return -1;
     
-    /* Extract comm (process name) */
-    size_t name_len = end - start - 1;
+    /* Extract process name (inside parentheses) */
+    size_t name_len = (size_t)(end - start - 1);
     if (name_len >= sizeof(proc->name)) {
         name_len = sizeof(proc->name) - 1;
     }
     memcpy(proc->name, start + 1, name_len);
     proc->name[name_len] = '\0';
     
-    /* Parse fields after the comm */
+    /* Parse fields after the comm field */
+    char state;
+    int ppid;
     unsigned long vsize;
     long rss;
     unsigned long long starttime;
+    int num_threads;
     
-    int thread_count_tmp;
-    
-    int parsed = sscanf(end + 2, 
+    int parsed = sscanf(end + 2,
         "%c %d %*d %*d %*d %*d %*u %*u %*u %*u %*u "
         "%*u %*u %*d %*d %*d %*d %d %*d %llu %lu %ld",
-        &proc->state,
-        &proc->ppid,
-        &thread_count_tmp,
-        &starttime,
-        &vsize,
-        &rss);
+        &state, &ppid, &num_threads, &starttime, &vsize, &rss);
     
     if (parsed < 6) return -1;
     
     proc->pid = pid;
-    proc->thread_count = (uint32_t)thread_count_tmp;
+    proc->ppid = ppid;
+    proc->state = state;
     proc->vsize_bytes = vsize;
-    proc->rss_bytes = rss * sysconf(_SC_PAGESIZE);
+    proc->rss_bytes = (uint64_t)rss * sysconf(_SC_PAGESIZE);
+    proc->thread_count = (uint32_t)num_threads;
     
-    /* Calculate process age */
-    /* starttime is in clock ticks since boot */
+    /* Calculate process start time */
     long ticks_per_sec = sysconf(_SC_CLK_TCK);
-    time_t now = time(NULL);
-    struct sysinfo si;
-    if (sysinfo(&si) == 0) {
-        time_t boot_time = now - si.uptime;
-        proc->start_time = boot_time + (starttime / ticks_per_sec);
-        proc->age_seconds = now - proc->start_time;
+    time_t boot_time = time(NULL);
+    
+    /* Get actual boot time from /proc/stat */
+    FILE *stat_f = fopen("/proc/stat", "r");
+    if (stat_f) {
+        char line[256];
+        while (fgets(line, sizeof(line), stat_f)) {
+            if (strncmp(line, "btime ", 6) == 0) {
+                boot_time = atol(line + 6);
+                break;
+            }
+        }
+        fclose(stat_f);
     }
+    
+    proc->start_time = boot_time + (time_t)(starttime / ticks_per_sec);
+    proc->age_seconds = (uint64_t)(time(NULL) - proc->start_time);
     
     /* Heuristic: process might be stuck if it's old and in certain states */
     /* D = uninterruptible sleep, often indicates I/O issues */
@@ -210,8 +277,124 @@ int probe_processes(process_info_t *procs, int max_procs, int *count) {
     return 0;
 }
 
+#endif /* PLATFORM_LINUX */
+
 /* ============================================================
- * Config File Probing
+ * Process Probing (macOS)
+ * ============================================================ */
+
+#ifdef PLATFORM_MACOS
+
+/* Convert macOS process status to single-char state */
+static char macos_state_to_char(uint32_t status) {
+    switch (status) {
+        case SIDL:    return 'I';  /* Idle (being created) */
+        case SRUN:    return 'R';  /* Running */
+        case SSLEEP:  return 'S';  /* Sleeping */
+        case SSTOP:   return 'T';  /* Stopped */
+        case SZOMB:   return 'Z';  /* Zombie */
+        default:      return '?';
+    }
+}
+
+/* Parse process info for a single PID using libproc */
+static int parse_proc_macos(pid_t pid, process_info_t *proc) {
+    struct proc_bsdinfo bsdinfo;
+    
+    /* Get basic process info */
+    int ret = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, 
+                           &bsdinfo, sizeof(bsdinfo));
+    if (ret <= 0) return -1;
+    
+    proc->pid = pid;
+    proc->ppid = bsdinfo.pbi_ppid;
+    
+    /* Process name - try to get the full name first */
+    char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+    if (proc_pidpath(pid, pathbuf, sizeof(pathbuf)) > 0) {
+        char *name = strrchr(pathbuf, '/');
+        if (name) {
+            safe_strcpy(proc->name, name + 1, sizeof(proc->name));
+        } else {
+            safe_strcpy(proc->name, pathbuf, sizeof(proc->name));
+        }
+    } else {
+        safe_strcpy(proc->name, bsdinfo.pbi_name, sizeof(proc->name));
+        if (proc->name[0] == '\0') {
+            safe_strcpy(proc->name, bsdinfo.pbi_comm, sizeof(proc->name));
+        }
+    }
+    
+    /* Process state */
+    proc->state = macos_state_to_char(bsdinfo.pbi_status);
+    
+    /* Get task info for memory and threads */
+    struct proc_taskinfo taskinfo;
+    ret = proc_pidinfo(pid, PROC_PIDTASKINFO, 0,
+                       &taskinfo, sizeof(taskinfo));
+    if (ret > 0) {
+        proc->rss_bytes = taskinfo.pti_resident_size;
+        proc->vsize_bytes = taskinfo.pti_virtual_size;
+        proc->thread_count = taskinfo.pti_threadnum;
+    }
+    
+    /* Start time */
+    proc->start_time = (time_t)bsdinfo.pbi_start_tvsec;
+    proc->age_seconds = (uint64_t)(time(NULL) - proc->start_time);
+    
+    /* File descriptor count */
+    proc->open_fd_count = (uint32_t)count_fds(pid);
+    
+    /* Heuristic: detect potentially stuck processes */
+    proc->is_potentially_stuck = 0;
+    if (proc->state == 'Z') {
+        proc->is_potentially_stuck = 1;  /* Zombie */
+    }
+    
+    return 0;
+}
+
+int probe_processes(process_info_t *procs, int max_procs, int *count) {
+    if (!procs || !count) return -1;
+    
+    *count = 0;
+    
+    /* Get list of all process IDs */
+    int num_pids = proc_listallpids(NULL, 0);
+    if (num_pids <= 0) return -1;
+    
+    /* Allocate buffer for PIDs */
+    size_t buf_size = (size_t)(num_pids + 20) * sizeof(pid_t);
+    pid_t *pid_list = malloc(buf_size);
+    if (!pid_list) return -1;
+    
+    num_pids = proc_listallpids(pid_list, (int)buf_size);
+    if (num_pids <= 0) {
+        free(pid_list);
+        return -1;
+    }
+    
+    /* Iterate through PIDs and gather info */
+    for (int i = 0; i < num_pids && *count < max_procs; i++) {
+        pid_t pid = pid_list[i];
+        if (pid <= 0) continue;
+        
+        process_info_t *proc = &procs[*count];
+        memset(proc, 0, sizeof(*proc));
+        
+        if (parse_proc_macos(pid, proc) == 0) {
+            (*count)++;
+        }
+    }
+    
+    free(pid_list);
+    return 0;
+}
+
+#endif /* PLATFORM_MACOS */
+
+/* ============================================================
+ * Config File Probing (Portable)
  * ============================================================ */
 
 int probe_config_files(const char **paths, int path_count,

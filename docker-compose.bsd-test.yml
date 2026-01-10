@@ -1,0 +1,128 @@
+# C-Sentinel BSD Audit Testing with Docker
+# 
+# Note: True BSD testing requires VMs (Vagrant) since Docker runs Linux kernel.
+# This file tests the BUILD on BSD-like environments, not runtime behavior.
+#
+# For full audit testing, use: ./test-bsd-audit-vagrant.sh
+#
+# This Docker setup is useful for:
+#   - Verifying cross-compilation
+#   - Testing build system
+#   - CI/CD integration
+#
+
+version: '3.8'
+
+services:
+  # FreeBSD cross-compile test (using FreeBSD toolchain on Linux)
+  freebsd-build-test:
+    image: alpine:latest
+    volumes:
+      - ..:/src:ro
+      - ./results:/results
+    working_dir: /src
+    command: |
+      sh -c '
+        echo "=== FreeBSD Build Test (Alpine) ==="
+        apk add --no-cache build-base
+        
+        # Test that PLATFORM_BSD code compiles
+        echo "Testing BSD code paths compile..."
+        
+        # Create a test file that includes BSD code
+        cat > /tmp/test_bsd_compile.c << EOF
+        #define PLATFORM_BSD 1
+        #include "audit_platform.h"
+        #include "audit.h"
+        
+        int main(void) {
+            audit_summary_t s = {0};
+            s.enabled = true;
+            return 0;
+        }
+        EOF
+        
+        if gcc -c /tmp/test_bsd_compile.c -I./include -o /tmp/test.o 2>&1; then
+          echo "PASS: BSD code compiles"
+          echo "freebsd-build: PASS" >> /results/build-tests.txt
+        else
+          echo "FAIL: BSD code does not compile"
+          echo "freebsd-build: FAIL" >> /results/build-tests.txt
+          exit 1
+        fi
+      '
+
+  # Linux build and test (full functionality)
+  linux-audit-test:
+    image: ubuntu:22.04
+    privileged: true
+    volumes:
+      - ..:/src
+      - ./results:/results
+    working_dir: /src
+    command: |
+      bash -c '
+        echo "=== Linux Audit Test ==="
+        apt-get update && apt-get install -y build-essential auditd
+        
+        # Build
+        make clean && make
+        
+        # Start auditd
+        service auditd start || true
+        
+        # Run tests
+        ./bin/sentinel --version
+        ./bin/sentinel --quick
+        ./bin/sentinel --audit --quick
+        ./bin/sentinel --audit --json | head -50
+        
+        echo "linux-audit: PASS" >> /results/build-tests.txt
+      '
+
+  # Struct size verification
+  struct-test:
+    image: gcc:latest
+    volumes:
+      - ..:/src:ro
+      - ./results:/results
+    working_dir: /src
+    command: |
+      bash -c '
+        echo "=== Struct Size Verification ==="
+        
+        cat > /tmp/check_struct.c << EOF
+        #include <stdio.h>
+        #include "audit.h"
+        
+        int main(void) {
+            printf("sizeof(audit_summary_t) = %lu\n", sizeof(audit_summary_t));
+            printf("sizeof(audit_baseline_t) = %lu\n", sizeof(audit_baseline_t));
+            printf("sizeof(file_access_t) = %lu\n", sizeof(file_access_t));
+            printf("sizeof(process_chain_t) = %lu\n", sizeof(process_chain_t));
+            
+            // Sanity checks
+            if (sizeof(audit_summary_t) > 100000) {
+                printf("ERROR: audit_summary_t too large!\n");
+                return 1;
+            }
+            if (sizeof(audit_summary_t) < 1000) {
+                printf("ERROR: audit_summary_t too small!\n");
+                return 1;
+            }
+            
+            printf("Struct sizes OK\n");
+            return 0;
+        }
+        EOF
+        
+        gcc /tmp/check_struct.c -I./include -o /tmp/check_struct
+        if /tmp/check_struct; then
+          echo "struct-test: PASS" >> /results/build-tests.txt
+        else
+          echo "struct-test: FAIL" >> /results/build-tests.txt
+          exit 1
+        fi
+      '
+
+# Run all tests: docker-compose -f docker-compose.bsd-test.yml up

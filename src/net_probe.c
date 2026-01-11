@@ -212,17 +212,21 @@ static int parse_proc_net_udp(const char *path, const char *proto,
     while (fgets(line, sizeof(line), f) && *count < max) {
         char local_addr[64];
         unsigned int local_port;
+        unsigned int state;  
         unsigned long inode;
 
+        // Parse the state field
         int parsed = sscanf(
             line,
-            " %*d: %64[0-9A-Fa-f]:%X %*s %*s %*X:%*X %*X:%*X %*X %*u %*d %lu",
-            local_addr, &local_port, &inode);
+            " %*d: %64[0-9A-Fa-f]:%X %*64[0-9A-Fa-f]:%*X %X %*X:%*X %*X:%*X %*X %*u %*d %lu",
+            local_addr, &local_port, &state, &inode);
 
-        if (parsed < 3)
+        if (parsed < 4)  // <-- expecting 4 fields
             continue;
-        if (local_port == 0)
-            continue; /* Skip unbound */
+        
+        // Check state 0x07 (UDP listening) AND non-zero port
+        if (state != 0x07 || local_port == 0)
+            continue;
 
         net_listener_t *l = &listeners[*count];
         memset(l, 0, sizeof(*l));
@@ -306,46 +310,10 @@ int probe_network_connections(net_connection_t *conns, int max, int *count) {
         c->pid = find_socket_pid(inode);
         if (c->pid > 0) {
             get_process_name(c->pid, c->process_name, sizeof(c->process_name));
-        
-        if (is_ipv6) {
-            if (sscanf(line, "%*d: %32[0-9A-Fa-f]:%X %32[0-9A-Fa-f]:%X %X %*s %*s %*s %*d %*d %lu",
-                       local_addr_hex, &local_port,
-                       remote_addr_hex, &remote_port,
-                       &state, &inode) != 6) continue;
-        } else {
-            if (sscanf(line, "%*d: %8[0-9A-Fa-f]:%X %8[0-9A-Fa-f]:%X %X %*s %*s %*s %*d %*d %lu",
-                       local_addr_hex, &local_port,
-                       remote_addr_hex, &remote_port,
-                       &state, &inode) != 6) continue;
-        }
-        
-        /* UDP sockets with state 07 are listening */
-        if (state == 0x07 && local_port) {
-            net_listener_t *l = &net->listeners[net->listener_count];
-            
-            snprintf(l->protocol, sizeof(l->protocol), is_ipv6 ? "udp6" : "udp");
-            hex_to_ip(local_addr_hex, l->local_addr, sizeof(l->local_addr), is_ipv6);
-            l->local_port = local_port;
-            snprintf(l->state, sizeof(l->state), "LISTEN");
-            
-            l->pid = find_pid_for_inode(inode);
-            if (l->pid > 0) {
-                get_process_name(l->pid, l->process_name, sizeof(l->process_name));
-            } else {
-                snprintf(l->process_name, sizeof(l->process_name), "[kernel]");
-            }
-            
-            net->listener_count++;
-            net->total_listening++;
-            
-            if (!is_common_port(local_port)) {
-                net->unusual_port_count++;
-            }
-        }
+	}
 
-        (*count)++;
+               (*count)++;
     }
-
     fclose(f);
     return 0;
 }

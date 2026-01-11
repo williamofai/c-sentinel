@@ -227,10 +227,23 @@ class SentinelAnalyzer:
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         
-        if result.returncode != 0:
-            raise RuntimeError(f"Sentinel failed: {result.stderr}")
+        # Exit codes: 0 = success, 1 = warnings (minor issues), 2+ = errors
+        if result.returncode >= 2:
+            error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+            raise RuntimeError(f"Sentinel failed (exit {result.returncode}): {error_msg}")
         
-        return json.loads(result.stdout)
+        if result.returncode == 1 and result.stderr:
+            # Warnings - log but continue (output is still valid)
+            print(f"Warning: {result.stderr.strip()}", file=sys.stderr)
+        
+        # Parse JSON output
+        if not result.stdout.strip():
+            raise RuntimeError("Sentinel produced no output")
+        
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Failed to parse Sentinel output: {e}")
     
     def _sanitize_for_api(self, fingerprint: Dict[str, Any]) -> str:
         """Sanitize fingerprint before sending to external API."""

@@ -283,6 +283,16 @@ endif
 # - Disable some warnings that cmocka triggers
 TEST_CFLAGS = $(CFLAGS) -g -I$(TEST_INC_DIR) $(CMOCKA_CFLAGS)
 TEST_CFLAGS += -Wno-unused-parameter
+# POSIX feature test macros for test helpers (mkdtemp, strdup, lstat, setenv, unsetenv)
+ifeq ($(PLATFORM),linux)
+    TEST_CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
+endif
+ifeq ($(PLATFORM),macos)
+    TEST_CFLAGS += -D_DARWIN_C_SOURCE
+endif
+ifeq ($(findstring bsd,$(PLATFORM)),bsd)
+    TEST_CFLAGS += -D_BSD_SOURCE
+endif
 TEST_LDFLAGS = $(LDFLAGS) $(CMOCKA_LDFLAGS)
 
 # Coverage flags (optional, enabled with make coverage)

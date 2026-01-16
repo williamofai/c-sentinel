@@ -6,6 +6,9 @@
  * 2. Temporary directory management for file-based tests
  * 3. Fixture file utilities
  * 4. Common assertions for C-Sentinel types
+ *
+ * Note: Tests are compiled with -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
+ * for POSIX functions (mkdtemp, strdup, lstat, setenv, unsetenv).
  */
 
 #ifndef TEST_HELPERS_H

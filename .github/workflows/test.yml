@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cmocka (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libcmocka-dev
+
+      - name: Install cmocka (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmocka
+
+      - name: Build
+        run: make
+
+      - name: Run tests
+        run: make test
+
+      - name: Run unit tests with verbose output
+        run: make unit-test

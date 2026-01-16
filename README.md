@@ -495,9 +495,90 @@ Colour output is auto-detected (TTY) and respects the [NO_COLOR](https://no-colo
 ```bash
 make              # Release build
 make DEBUG=1      # Debug build with symbols
-make test         # Run basic tests
+make test         # Run all tests (unit + integration)
 make install      # Install to /usr/local/bin
 ```
+
+## Testing
+
+C-Sentinel includes a comprehensive test suite with 128+ unit tests using the [cmocka](https://cmocka.org/) testing framework.
+
+### Installing cmocka
+
+**Debian/Ubuntu:**
+```bash
+sudo apt-get install libcmocka-dev
+```
+
+**Fedora/RHEL/CentOS:**
+```bash
+sudo dnf install libcmocka-devel
+```
+
+**macOS (Homebrew):**
+```bash
+brew install cmocka
+```
+
+**FreeBSD:**
+```bash
+sudo pkg install cmocka
+```
+
+**OpenBSD:**
+```bash
+doas pkg_add cmocka
+```
+
+### Running Tests
+
+```bash
+make test              # Run all tests (unit + integration)
+make unit-test         # Run unit tests only (requires cmocka)
+make integration-test  # Run integration/smoke tests only
+make coverage          # Run tests with gcov coverage report
+make check-cmocka      # Verify cmocka is installed correctly
+```
+
+### Test Coverage
+
+The unit tests cover:
+
+| Module | Tests | Coverage |
+|--------|-------|----------|
+| SHA256 | 10 | NIST test vectors, edge cases |
+| Sanitize | 30 | Input validation, injection prevention |
+| Policy | 36 | Command/path allow/deny rules |
+| JSON Serialize | 11 | Output formatting, escaping |
+| Baseline | 11 | Learning mode, deviation detection |
+| Config | 9 | Configuration parsing |
+| Audit | 21 | Risk scoring, event analysis |
+
+### Writing New Tests
+
+Tests are located in `tests/src/` and use cmocka conventions:
+
+```c
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
+#include "test_helpers.h"
+
+static void test_example(void **state) {
+    (void)state;
+    assert_int_equal(1 + 1, 2);
+}
+
+int main(void) {
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_example),
+    };
+    return cmocka_run_group_tests(tests, NULL, NULL);
+}
+```
+
+Add new test files to the Makefile's `TEST_SOURCES` variable.
 
 ## Platform Support
 

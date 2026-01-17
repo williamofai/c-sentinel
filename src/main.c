@@ -215,7 +215,7 @@ static int run_analysis(const char **configs, int config_count,
         }
 
         /* If audit mode, we need to inject audit JSON before the closing brace */
-        if (audit && audit->enabled) {
+        if (audit) {
             /* Find the last closing brace */
             char *last_brace = strrchr(json, '}');
             if (last_brace && last_brace > json) {
@@ -301,7 +301,7 @@ static int run_analysis(const char **configs, int config_count,
         }
 
         /* Same audit injection logic */
-        if (audit && audit->enabled) {
+        if (audit) {
             char *last_brace = strrchr(json, '}');
             if (last_brace && last_brace > json) {
                 char audit_json[16384];

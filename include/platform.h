@@ -48,6 +48,13 @@
 #endif
 
 /* ============================================================
+ * Standard Headers (Must come before platform headers)
+ * ============================================================ */
+
+#include <sys/types.h>    /* MUST be first - defines u_int64_t, register_t, etc. */
+#include <stdint.h>       /* Required for int32_t, uint16_t, etc. */
+
+/* ============================================================
  * Platform-Specific Headers
  * ============================================================ */
 
@@ -92,7 +99,6 @@
  * Common Headers (All Platforms)
  * ============================================================ */
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/time.h>

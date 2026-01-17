@@ -33,6 +33,10 @@ else ifeq ($(UNAME_S),OpenBSD)
     PLATFORM := bsd
     PLATFORM_CFLAGS := -DPLATFORM_BSD
     PLATFORM_LDFLAGS := -lkvm
+else ifeq ($(UNAME_S),DragonFly)
+    PLATFORM := bsd
+    PLATFORM_CFLAGS := -DPLATFORM_BSD
+    PLATFORM_LDFLAGS := -lkvm
 else
     $(error Unsupported platform: $(UNAME_S))
 endif

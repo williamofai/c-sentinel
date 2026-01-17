@@ -132,11 +132,22 @@ static int find_current_audit_trail(char *path, size_t pathsize) {
 static audit_backend_type_t detect_audit_backend(void) {
     char trail[512];
     
-    /* Try BSM first */
+    /* Try BSM first - check for active audit trails */
     if (find_current_audit_trail(trail, sizeof(trail)) == 0) {
         /* Verify we can actually read it */
         if (access(trail, R_OK) == 0) {
             return AUDIT_BACKEND_BSM_AVAILABLE;
+        }
+    }
+    
+    /* Check if audit directory exists (indicates OpenBSM is installed) */
+    struct stat st;
+    if (stat(BSM_AUDIT_DIR, &st) == 0 && S_ISDIR(st.st_mode)) {
+        /* Directory exists - check if auditd is installed */
+        if (access("/usr/sbin/auditd", X_OK) == 0 || 
+            access("/sbin/auditd", X_OK) == 0) {
+            /* OpenBSM is installed but not actively auditing */
+            /* We could enable a "dormant" mode here, but for now return unavailable */
         }
     }
     
@@ -226,7 +237,7 @@ static void parse_auth_events_bsm_backend(audit_summary_t *summary) {
                 }
                 username[i] = '\0';
                 
-                if (strlen(username) > 0 && !isdigit(username[0])) {
+                if (strlen(username) > 0 && !isdigit((unsigned char)username[0])) {
                     hashed_user_t *user = find_or_add_user_bsm(summary, username);
                     if (user) {
                         user->count++;

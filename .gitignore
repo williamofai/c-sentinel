@@ -33,3 +33,9 @@ output/
 # Temporary files
 *.tmp
 *.log
+
+# BSD test artifacts
+.vagrant-bsd-tests/
+.vagrant/
+bsd-test-results.txt
+vagrant-bsd-audit-test/

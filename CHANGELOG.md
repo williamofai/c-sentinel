@@ -5,6 +5,25 @@ All notable changes to C-Sentinel will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **DragonFlyBSD support** - Full platform support in Makefile
+- **Improved BSD test infrastructure** - Comprehensive test suite with robust error handling
+  - VM health verification after startup
+  - Stale VM cleanup to prevent name collisions
+  - Enhanced error detection and reporting
+  - Consolidated test scripts (removed test-bsd-all.sh and test-bsd-audit-vagrant.sh)
+
+### Fixed
+- **OpenBSD header inclusion order** - Fixed compilation issues with sys/types.h ordering
+- **Audit backend detection** - Enhanced detection for dormant OpenBSM installations
+- **Audit JSON output** - Include audit section even when disabled for consistent schema
+- **Portability** - Fixed isdigit() cast for BSD compatibility
+
+### Changed
+- Test infrastructure now uses single comprehensive test-bsd.sh script
+
 ## [0.5.8] - 2026-01-03
 
 ### Added
